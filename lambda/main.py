@@ -603,7 +603,7 @@ def generate_error_page(error_message):
     </html>
     """
 def generate_html_report(results, timestamp):
-    """Generate modern, interactive HTML report for FSx analysis"""
+    """Generate a clean tabular FSx analysis report with alternating colors."""
     html = f"""<!DOCTYPE html>
     <html lang="en">
     <head>
@@ -612,119 +612,85 @@ def generate_html_report(results, timestamp):
         <title>FSx Analysis Report</title>
         <style>
             body {{
-                font-family: 'Segoe UI', Tahoma, sans-serif;
-                background-color: #f4f6f8;
-                margin: 0;
-                padding: 20px;
+                font-family: Arial, sans-serif;
+                background-color: #f5f7fa;
+                margin: 20px;
                 color: #333;
             }}
             h1 {{
                 text-align: center;
-                color: #1565c0;
+                color: #0d47a1;
             }}
             .timestamp {{
                 text-align: center;
-                color: #666;
-                margin-bottom: 30px;
-            }}
-            .fs-card {{
-                background: white;
-                border-radius: 12px;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                color: #777;
                 margin-bottom: 25px;
-                padding: 20px;
-                transition: box-shadow 0.2s;
             }}
-            .fs-card:hover {{
-                box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 30px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                background: white;
+                border-radius: 10px;
+                overflow: hidden;
+            }}
+            th, td {{
+                text-align: left;
+                padding: 8px 12px;
+                vertical-align: top;
+            }}
+            tr:nth-child(even) {{
+                background-color: #f0f7ff;
+            }}
+            tr:nth-child(odd) {{
+                background-color: #ffffff;
+            }}
+            th {{
+                background-color: #1565c0;
+                color: white;
+                font-weight: bold;
             }}
             .fs-header {{
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                border-bottom: 2px solid #e3f2fd;
-                padding-bottom: 10px;
-                margin-bottom: 15px;
-            }}
-            .fs-header h2 {{
-                color: #0d47a1;
-                font-size: 20px;
-                margin: 0;
-            }}
-            .summary-grid {{
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-                gap: 10px;
-                margin-bottom: 20px;
-            }}
-            .summary-item {{
-                background: #f1f8ff;
-                border-left: 4px solid #1565c0;
-                padding: 10px;
-                border-radius: 6px;
-            }}
-            .summary-label {{
+                background-color: #0d47a1;
+                color: white;
+                font-size: 16px;
                 font-weight: bold;
-                display: block;
-                color: #1565c0;
             }}
-            .tag {{
-                display: inline-block;
-                background: #e3f2fd;
-                color: #0d47a1;
-                border-radius: 4px;
-                padding: 2px 6px;
-                margin: 2px;
-                font-size: 12px;
-                border: 1px solid #90caf9;
-            }}
-            .recommendation {{
-                padding: 10px;
-                margin: 8px 0;
-                border-radius: 6px;
-                font-size: 14px;
-            }}
-            .info {{ background: #e3f2fd; border-left: 5px solid #2196F3; }}
-            .warning {{ background: #fff8e1; border-left: 5px solid #FFB300; }}
-            .critical {{ background: #ffebee; border-left: 5px solid #E53935; }}
             .section-title {{
                 font-weight: bold;
                 color: #1565c0;
-                margin-top: 20px;
-                border-bottom: 1px solid #ccc;
-                padding-bottom: 4px;
+                padding-top: 8px;
             }}
-            .volume-card {{
-                border: 1px solid #ddd;
-                border-radius: 8px;
-                margin: 10px 0;
-                padding: 10px;
-                background: #fafafa;
-            }}
-            .volume-header {{
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                cursor: pointer;
-            }}
-            .volume-header h3 {{
+            .tag {{
+                background: #e3f2fd;
+                border: 1px solid #90caf9;
+                border-radius: 4px;
+                padding: 2px 6px;
+                margin-right: 4px;
+                display: inline-block;
+                font-size: 12px;
                 color: #0d47a1;
-                font-size: 16px;
-                margin: 0;
             }}
-            .toggle-icon {{
+            .recommendations {{
+                background-color: #fff3e0;
+                border-top: 2px solid #ffe0b2;
+            }}
+            .volume-table {{
+                width: 95%;
+                margin: 10px auto 20px auto;
+                border-collapse: collapse;
+                font-size: 14px;
+            }}
+            .volume-table th {{
+                background-color: #1976d2;
+                color: white;
                 font-weight: bold;
-                color: #1565c0;
-                transition: transform 0.2s;
+                padding: 6px 10px;
             }}
-            .volume-details {{
-                display: none;
-                margin-top: 10px;
-            }}
-            .volume-grid {{
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-                gap: 8px;
+            .volume-table td {{
+                border-bottom: 1px solid #ddd;
+                padding: 6px 10px;
             }}
             .footer {{
                 text-align: center;
@@ -733,19 +699,6 @@ def generate_html_report(results, timestamp):
                 margin-top: 40px;
             }}
         </style>
-        <script>
-            function toggleVolume(id) {{
-                const content = document.getElementById(id);
-                const icon = document.querySelector(`#icon-${id}`);
-                if (content.style.display === "block") {{
-                    content.style.display = "none";
-                    icon.style.transform = "rotate(0deg)";
-                }} else {{
-                    content.style.display = "block";
-                    icon.style.transform = "rotate(90deg)";
-                }}
-            }}
-        </script>
     </head>
     <body>
         <h1>FSx Analysis Report</h1>
@@ -753,75 +706,60 @@ def generate_html_report(results, timestamp):
     """
 
     if not isinstance(results, list):
-        html += f"""<div class="info recommendation">{results.get('message', 'No results available')}</div>"""
+        html += f"""<p>{results.get('message', 'No results available')}</p>"""
     else:
         for fs in results:
             html += f"""
-            <div class="fs-card">
-                <div class="fs-header">
-                    <h2>Filesystem: {fs['fsid']}</h2>
-                    <span>Generation: {fs['gen']}</span>
-                </div>
+            <table class="volume-table">
+                <tr class="fs-header"><td colspan="2"><h2>Filesystem: {fs['fsid']}</h2></td></tr>
+                <tr><td>Generation</td><td>{fs['gen']}</td></tr>
+                <tr><td>Storage</td><td>{fs['storage_gib']} GiB</td></tr>
+                <tr><td>Used</td><td>{fs['provisioned_gib']} GiB</td></tr>
+                <tr><td>Throughput</td><td>{fs['throughput_capacity']} MB/s</td></tr>
+                <tr><td>Total I/O</td><td>{fs['total_throughput']:.2f} MB/s</td></tr>
+                <tr><td>Monthly Cost</td><td>${fs['monthly_cost_estimate']:.2f}</td></tr>
+                <tr><td>Efficiency</td><td>{fs['storage_efficiency']}%</td></tr>
+                <tr><td class="section-title">Tags</td>
+                    <td>{' '.join([f'<span class="tag">{t["Key"]}: {t["Value"]}</span>' for t in fs.get("tags", [])]) or 'No tags'}</td>
+                </tr>
+                <tr class="recommendations">
+                    <td colspan="2">
+                        <div class="section-title">Recommendations</div>
+                        {''.join([f'<div>• {rec["message"]}</div>' for rec in fs.get("recommendations", [])]) or '<div>None</div>'}
+                    </td>
+                </tr>
+            </table>
+            """
 
-                <div class="summary-grid">
-                    <div class="summary-item"><span class="summary-label">Storage</span>{fs['storage_gib']} GiB</div>
-                    <div class="summary-item"><span class="summary-label">Used</span>{fs['provisioned_gib']} GiB</div>
-                    <div class="summary-item"><span class="summary-label">Throughput</span>{fs['throughput_capacity']} MB/s</div>
-                    <div class="summary-item"><span class="summary-label">Total I/O</span>{fs['total_throughput']:.2f} MB/s</div>
-                    <div class="summary-item"><span class="summary-label">Monthly Cost</span>${fs['monthly_cost_estimate']:.2f}</div>
-                    <div class="summary-item"><span class="summary-label">Efficiency</span>{fs['storage_efficiency']}%</div>
-                </div>
-
-                <div class="section-title">Tags</div>
-                <div>"""
-            if fs.get('tags'):
-                for tag in fs['tags']:
-                    html += f"""<span class="tag">{tag['Key']}: {tag['Value']}</span>"""
-            else:
-                html += """<span class="tag">No tags</span>"""
-            html += "</div>"
-
-            html += """<div class="section-title">Recommendations</div>"""
-            for rec in fs.get('recommendations', []):
-                html += f"""<div class="recommendation {rec['type']}">{rec['message']}</div>"""
-
-            # Volumes Section
-            if fs.get('volumes'):
-                html += """<div class="section-title">Volumes</div>"""
-                for idx, vol in enumerate(fs['volumes'], start=1):
-                    vid = f"vol_{fs['fsid']}_{idx}"
+            # Volume table
+            if fs.get("volumes"):
+                html += f"""
+                <table class="volume-table">
+                    <tr><th colspan="6">Volumes for {fs['fsid']}</th></tr>
+                    <tr>
+                        <th>Path</th>
+                        <th>Size (GiB)</th>
+                        <th>Total I/O (MB/s)</th>
+                        <th>Read</th>
+                        <th>Write</th>
+                        <th>Recommendations</th>
+                    </tr>
+                """
+                for vol in fs["volumes"]:
+                    recs = "<br>".join(
+                        [f"• {r['message']}" for r in vol.get("recommendations", []) if r["type"] != "separator"]
+                    )
                     html += f"""
-                    <div class="volume-card">
-                        <div class="volume-header" onclick="toggleVolume('{vid}')">
-                            <h3>{vol['path']}</h3>
-                            <span id="icon-{vid}" class="toggle-icon">&#9654;</span>
-                        </div>
-                        <div class="volume-details" id="{vid}">
-                            <div class="volume-grid">
-                                <div><strong>Size:</strong> {vol['size_gib']} GiB</div>
-                                <div><strong>Total I/O:</strong> {vol['total_throughput_mbs']:.2f} MB/s</div>
-                                <div><strong>Read:</strong> {vol['read_throughput_mbs']:.2f} MB/s</div>
-                                <div><strong>Write:</strong> {vol['write_throughput_mbs']:.2f} MB/s</div>
-                                <div><strong>Efficiency:</strong> {vol['efficiency_ratio']}</div>
-                            </div>
-                            <div class="section-title" style="margin-top:15px;">Volume Tags</div>
+                    <tr>
+                        <td>{vol['path']}</td>
+                        <td>{vol['size_gib']}</td>
+                        <td>{vol['total_throughput_mbs']:.2f}</td>
+                        <td>{vol['read_throughput_mbs']:.2f}</td>
+                        <td>{vol['write_throughput_mbs']:.2f}</td>
+                        <td>{recs or 'None'}</td>
+                    </tr>
                     """
-                    if vol.get('tags'):
-                        for tag in vol['tags']:
-                            html += f"""<span class="tag">{tag['Key']}: {tag['Value']}</span>"""
-                    else:
-                        html += """<span class="tag">No tags</span>"""
+                html += "</table>"
 
-                    html += """<div class="section-title" style="margin-top:15px;">Volume Recommendations</div>"""
-                    for rec in vol.get('recommendations', []):
-                        if rec['type'] != 'separator':
-                            html += f"""<div class="recommendation {rec['type']}">{rec['message']}</div>"""
-                    html += """</div></div>"""
-
-            html += """</div>"""
-
-    html += """
-        <div class="footer">FSx Analyzer — AWS Optimization Report</div>
-    </body>
-    </html>"""
+    html += """<div class="footer">FSx Analyzer — AWS Optimization Report</div></body></html>"""
     return html
