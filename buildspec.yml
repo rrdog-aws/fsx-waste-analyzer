@@ -1,0 +1,35 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.9
+  
+  pre_build:
+    commands:
+      - echo "Checking which components changed..."
+      - CHANGED_FILES=$(git diff --name-only $CODEBUILD_RESOLVED_SOURCE_VERSION $PREVIOUS_COMMIT)
+      - LAMBDA_CHANGED=$(echo "$CHANGED_FILES" | grep -q "^lambda/" && echo "true" || echo "false")
+      - EC2_CHANGED=$(echo "$CHANGED_FILES" | grep -q "^ec2/" && echo "true" || echo "false")
+      - echo "Lambda changed: $LAMBDA_CHANGED"
+      - echo "EC2 changed: $EC2_CHANGED"
+  
+  build:
+    commands:
+      - if [ "$LAMBDA_CHANGED" = "true" ]; then cd lambda && ./build.sh && cd ..; fi
+      - if [ "$EC2_CHANGED" = "true" ]; then cd ec2 && ./build.sh && cd ..; fi
+  
+  post_build:
+    commands:
+      - echo "Creating deployment artifacts..."
+      - if [ "$LAMBDA_CHANGED" = "true" ]; then mkdir -p artifacts/lambda && cp -r lambda/dist/* artifacts/lambda/; fi
+      - if [ "$EC2_CHANGED" = "true" ]; then mkdir -p artifacts/ec2 && cp -r ec2/dist/* artifacts/ec2/; fi
+      - echo "Creating deployment flag files..."
+      - if [ "$LAMBDA_CHANGED" = "true" ]; then touch artifacts/deploy_lambda; fi
+      - if [ "$EC2_CHANGED" = "true" ]; then touch artifacts/deploy_ec2; fi
+
+artifacts:
+  files:
+    - artifacts/**/*
+    - appspec.yml
+  discard-paths: no

@@ -144,6 +144,7 @@ def lambda_handler(event, context):
             except Exception as e:
                 logger.error(f"Error fetching tags for {fsid}: {str(e)}")
             return []
+            
         def get_volume_tags(volid):
             """Fetch tags for a given volume"""
             try:
@@ -384,6 +385,7 @@ def lambda_handler(event, context):
             except Exception as e:
                 logger.error(f"Error processing volume {vol.get('VolumeId', 'unknown')}: {str(e)}")
                 return None
+                
         def analyze_filesystems():
             try:
                 logger.info(f"AWS Region={region} Window={lookback_days}d Period={period}s p{pctl}")
@@ -553,213 +555,39 @@ def lambda_handler(event, context):
                 logger.error(f"Error in analyze_filesystems: {str(e)}")
                 return {"message": f"Error analyzing filesystems: {str(e)}"}
 
-        # Run analysis and generate report
+        # Run analysis and return JSON data
         analysis_results = analyze_filesystems()
-        html_output = generate_html_report(analysis_results, now_utc())
-        return html_output
+        
+        # Return JSON response
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': '*',
+                'Access-Control-Allow-Methods': 'GET,OPTIONS,POST'
+            },
+            'body': json.dumps({
+                'timestamp': now_utc(),
+                'results': analysis_results
+            }, default=decimal_serializer)
+        }
         
     except Exception as e:
         logger.error(f"Error in lambda_handler: {str(e)}", exc_info=True)
-        return generate_error_page(str(e))
+        return {
+            'statusCode': 500,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({
+                'error': str(e)
+            })
+        }
 
-def generate_error_page(error_message):
-    """Generate an HTML error page"""
-    return f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>FSx Analysis Error</title>
-        <style>
-            body {{ 
-                font-family: Arial, sans-serif; 
-                margin: 20px;
-                background-color: #f5f5f5;
-            }}
-            .error-container {{
-                max-width: 800px;
-                margin: 50px auto;
-                padding: 20px;
-                background: white;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            }}
-            .error {{ 
-                background-color: #ffebee; 
-                border-left: 4px solid #f44336; 
-                padding: 15px;
-                margin-top: 15px;
-                border-radius: 4px;
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="error-container">
-            <h1>Error Running FSx Analysis</h1>
-            <div class="error">
-                <p><strong>Error:</strong> {error_message}</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-def generate_html_report(results, timestamp):
-    """Generate a clean tabular FSx analysis report with alternating colors."""
-    html = f"""<!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>FSx Analysis Report</title>
-        <style>
-            body {{
-                font-family: Arial, sans-serif;
-                background-color: #f5f7fa;
-                margin: 20px;
-                color: #333;
-            }}
-            h1 {{
-                text-align: center;
-                color: #0d47a1;
-            }}
-            .timestamp {{
-                text-align: center;
-                color: #777;
-                margin-bottom: 25px;
-            }}
-            table {{
-                width: 100%;
-                border-collapse: collapse;
-                margin-bottom: 30px;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                background: white;
-                border-radius: 10px;
-                overflow: hidden;
-            }}
-            th, td {{
-                text-align: left;
-                padding: 8px 12px;
-                vertical-align: top;
-            }}
-            tr:nth-child(even) {{
-                background-color: #f0f7ff;
-            }}
-            tr:nth-child(odd) {{
-                background-color: #ffffff;
-            }}
-            th {{
-                background-color: #1565c0;
-                color: white;
-                font-weight: bold;
-            }}
-            .fs-header {{
-                background-color: #0d47a1;
-                color: white;
-                font-size: 16px;
-                font-weight: bold;
-            }}
-            .section-title {{
-                font-weight: bold;
-                color: #1565c0;
-                padding-top: 8px;
-            }}
-            .tag {{
-                background: #e3f2fd;
-                border: 1px solid #90caf9;
-                border-radius: 4px;
-                padding: 2px 6px;
-                margin-right: 4px;
-                display: inline-block;
-                font-size: 12px;
-                color: #0d47a1;
-            }}
-            .recommendations {{
-                background-color: #fff3e0;
-                border-top: 2px solid #ffe0b2;
-            }}
-            .volume-table {{
-                width: 95%;
-                margin: 10px auto 20px auto;
-                border-collapse: collapse;
-                font-size: 14px;
-            }}
-            .volume-table th {{
-                background-color: #1976d2;
-                color: white;
-                font-weight: bold;
-                padding: 6px 10px;
-            }}
-            .volume-table td {{
-                border-bottom: 1px solid #ddd;
-                padding: 6px 10px;
-            }}
-            .footer {{
-                text-align: center;
-                color: #999;
-                font-size: 13px;
-                margin-top: 40px;
-            }}
-        </style>
-    </head>
-    <body>
-        <h1>FSx Analysis Report</h1>
-        <div class="timestamp">Generated: {timestamp}</div>
-    """
-
-    if not isinstance(results, list):
-        html += f"""<p>{results.get('message', 'No results available')}</p>"""
-    else:
-        for fs in results:
-            html += f"""
-            <table class="volume-table">
-                <tr class="fs-header"><td colspan="2"><h2>Filesystem: {fs['fsid']}</h2></td></tr>
-                <tr><td>Generation</td><td>{fs['gen']}</td></tr>
-                <tr><td>Storage</td><td>{fs['storage_gib']} GiB</td></tr>
-                <tr><td>Used</td><td>{fs['provisioned_gib']} GiB</td></tr>
-                <tr><td>Throughput</td><td>{fs['throughput_capacity']} MB/s</td></tr>
-                <tr><td>Total I/O</td><td>{fs['total_throughput']:.2f} MB/s</td></tr>
-                <tr><td>Monthly Cost</td><td>${fs['monthly_cost_estimate']:.2f}</td></tr>
-                <tr><td>Efficiency</td><td>{fs['storage_efficiency']}%</td></tr>
-                <tr><td class="section-title">Tags</td>
-                    <td>{' '.join([f'<span class="tag">{t["Key"]}: {t["Value"]}</span>' for t in fs.get("tags", [])]) or 'No tags'}</td>
-                </tr>
-                <tr class="recommendations">
-                    <td colspan="2">
-                        <div class="section-title">Recommendations</div>
-                        {''.join([f'<div>• {rec["message"]}</div>' for rec in fs.get("recommendations", [])]) or '<div>None</div>'}
-                    </td>
-                </tr>
-            </table>
-            """
-
-            # Volume table
-            if fs.get("volumes"):
-                html += f"""
-                <table class="volume-table">
-                    <tr><th colspan="6">Volumes for {fs['fsid']}</th></tr>
-                    <tr>
-                        <th>Path</th>
-                        <th>Size (GiB)</th>
-                        <th>Total I/O (MB/s)</th>
-                        <th>Read</th>
-                        <th>Write</th>
-                        <th>Recommendations</th>
-                    </tr>
-                """
-                for vol in fs["volumes"]:
-                    recs = "<br>".join(
-                        [f"• {r['message']}" for r in vol.get("recommendations", []) if r["type"] != "separator"]
-                    )
-                    html += f"""
-                    <tr>
-                        <td>{vol['path']}</td>
-                        <td>{vol['size_gib']}</td>
-                        <td>{vol['total_throughput_mbs']:.2f}</td>
-                        <td>{vol['read_throughput_mbs']:.2f}</td>
-                        <td>{vol['write_throughput_mbs']:.2f}</td>
-                        <td>{recs or 'None'}</td>
-                    </tr>
-                    """
-                html += "</table>"
-
-    html += """<div class="footer">FSx Analyzer — AWS Optimization Report</div></body></html>"""
-    return html
+# Helper function to handle Decimal serialization
+def decimal_serializer(obj):
+    if isinstance(obj, Decimal):
+        return float(obj)
+    raise TypeError("Type not serializable")
