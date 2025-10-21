@@ -108,12 +108,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## Acknowledgements
-
-- AWS FSx team for their excellent documentation
-- NetApp for their storage efficiency metrics and best practices
-- All contributors who have helped improve this tool
-
----
-
 *Note: This tool is not officially affiliated with or endorsed by Amazon Web Services or NetApp.*
