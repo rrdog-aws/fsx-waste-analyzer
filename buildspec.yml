@@ -1,41 +1,60 @@
 version: 0.2
 
+env:
+  variables:
+    DEPLOY_TARGET: "none"
+
 phases:
   install:
     runtime-versions:
       python: 3.9
-  
+
   pre_build:
     commands:
-      - echo "Preparing build"
-  
+      - echo "Detecting changes to determine deployment target..."
+      - |
+        if git diff --name-only HEAD~1 HEAD | grep -E '^ec2-app/|^nginx/|^appspec.yml|^index.html'; then
+          echo "Detected EC2-related changes."
+          export DEPLOY_TARGET="ec2"
+        elif git diff --name-only HEAD~1 HEAD | grep -E '^lambda/'; then
+          echo "Detected Lambda-related changes."
+          export DEPLOY_TARGET="lambda"
+        else
+          echo "No deployable changes detected."
+          export DEPLOY_TARGET="none"
+        fi
+      - echo "DEPLOY_TARGET=${DEPLOY_TARGET}" > build-target.txt
+      - cat build-target.txt
+
   build:
     commands:
-      - echo "Building components"
-  
+      - echo "Building project for target: ${DEPLOY_TARGET}"
+
   post_build:
     commands:
-      - echo "Creating deployment artifacts"
-      - mkdir -p artifacts/lambda
-      - mkdir -p artifacts/ec2-app/fsx-analyzer
       - mkdir -p artifacts/scripts
-      - cp -r lambda/src/* artifacts/lambda/ || echo "No Lambda files to copy"
-      - cp -r ec2-app/fsx-analyzer/* artifacts/ec2-app/fsx-analyzer/ || echo "No fsx-analyzer files to copy"
-      - echo "#!/bin/bash" > artifacts/scripts/before_install.sh
-      - echo "mkdir -p /var/www/html/fsx-analyzer" >> artifacts/scripts/before_install.sh
-      - echo "rm -f /var/www/html/fsx-analyzer/analyze_fsx.php" >> artifacts/scripts/before_install.sh
-      - echo "systemctl stop nginx || true" >> artifacts/scripts/before_install.sh
-      - echo "#!/bin/bash" > artifacts/scripts/after_install.sh
-      - echo "chmod -R 755 /var/www/html/fsx-analyzer" >> artifacts/scripts/after_install.sh
-      - echo "chown -R nginx:nginx /var/www/html/fsx-analyzer" >> artifacts/scripts/after_install.sh
-      - echo "#!/bin/bash" > artifacts/scripts/start_services.sh
-      - echo "systemctl restart nginx" >> artifacts/scripts/start_services.sh
-      - chmod +x artifacts/scripts/before_install.sh
-      - chmod +x artifacts/scripts/after_install.sh
-      - chmod +x artifacts/scripts/start_services.sh
+      - |
+        if [ "$DEPLOY_TARGET" = "ec2" ]; then
+          echo "Preparing EC2 deployment artifact"
+          mkdir -p artifacts/ec2-app/fsx-analyzer
+          cp -r ec2-app/fsx-analyzer/* artifacts/ec2-app/fsx-analyzer/ || true
+          cp appspec.yml artifacts/
+          # generate hooks
+          echo "#!/bin/bash" > artifacts/scripts/before_install.sh
+          echo "systemctl stop nginx || true" >> artifacts/scripts/before_install.sh
+          echo "#!/bin/bash" > artifacts/scripts/after_install.sh
+          echo "chmod -R 755 /var/www/html/fsx-analyzer" >> artifacts/scripts/after_install.sh
+          echo "#!/bin/bash" > artifacts/scripts/start_services.sh
+          echo "systemctl restart nginx" >> artifacts/scripts/start_services.sh
+          chmod +x artifacts/scripts/*.sh
+        elif [ "$DEPLOY_TARGET" = "lambda" ]; then
+          echo "Preparing Lambda deployment artifact"
+          mkdir -p artifacts/lambda
+          cp -r lambda/src/* artifacts/lambda/
+        else
+          echo "Skipping artifact creation — no changes"
+        fi
 
 artifacts:
   files:
-    - appspec.yml
-    - artifacts/**/*
-  discard-paths: no
+    - build
