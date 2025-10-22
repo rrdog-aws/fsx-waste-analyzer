@@ -1,5 +1,4 @@
 #!/bin/bash
-# Enable error logging
 set -e
 exec > >(tee /var/log/codedeploy-after-install.log) 2>&1
 
@@ -9,7 +8,7 @@ echo "Starting after_install.sh at $(date)"
 DEPLOYMENT_DIR=$(find /opt/codedeploy-agent/deployment-root -name "deployment-archive" -type d | sort -r | head -n 1)
 echo "Deployment directory: $DEPLOYMENT_DIR"
 
-# Manually copy files
+# Manually copy ONLY the fsx-analyzer files, NOT nginx config
 echo "Manually copying files..."
 if [ -d "$DEPLOYMENT_DIR/artifacts/ec2-app/fsx-analyzer" ]; then
   echo "Copying fsx-analyzer files..."

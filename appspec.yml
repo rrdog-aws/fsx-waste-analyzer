@@ -1,12 +1,6 @@
 version: 0.0
 os: linux
-files:
-  - source: /artifacts/ec2-app/nginx/conf.d
-    destination: /etc/nginx/conf.d
-    file_exists_behavior: OVERWRITE
-  - source: /artifacts/ec2-app/fsx-analyzer
-    destination: /var/www/html/fsx-analyzer
-    file_exists_behavior: OVERWRITE
+# Remove the files section completely
 hooks:
   BeforeInstall:
     - location: artifacts/scripts/before_install.sh
