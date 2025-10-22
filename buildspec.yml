@@ -30,21 +30,8 @@ phases:
     commands:
       - echo "Creating deployment artifacts..."
       - mkdir -p artifacts
-      - if [ "$LAMBDA_CHANGED" = "true" ]; then 
-          echo "Packaging Lambda code...";
-          mkdir -p artifacts/lambda;
-          cd lambda/src;
-          zip -r ../../artifacts/lambda/function.zip .;
-          cd ../..;
-          echo '{"lambda": true}' > artifacts/deploy-config.json;
-        fi
-      - if [ "$EC2_CHANGED" = "true" ]; then
-          echo "Packaging EC2 code...";
-          mkdir -p artifacts/ec2-app;
-          cp -r ec2-app/* artifacts/ec2-app/;
-          cp appspec.yml artifacts/;
-          echo '{"ec2": true}' > artifacts/deploy-config.json;
-        fi
+      - if [ "$LAMBDA_CHANGED" = "true" ]; then echo "Packaging Lambda code..."; mkdir -p artifacts/lambda; cd lambda/src; zip -r ../../artifacts/lambda/function.zip .; cd ../..; echo '{"lambda": true}' > artifacts/deploy-config.json; fi
+      - if [ "$EC2_CHANGED" = "true" ]; then echo "Packaging EC2 code..."; mkdir -p artifacts/ec2-app; cp -r ec2-app/* artifacts/ec2-app/; cp appspec.yml artifacts/; echo '{"ec2": true}' > artifacts/deploy-config.json; fi
 
 artifacts:
   files:
