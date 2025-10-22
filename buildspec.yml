@@ -15,10 +15,12 @@ phases:
   build:
     commands:
       - echo "Building EC2 artifact..."
+      # Create folders for app and scripts
       - mkdir -p artifacts/ec2-app/fsx-analyzer
       - cp -r ec2-app/fsx-analyzer/* artifacts/ec2-app/fsx-analyzer/
       - mkdir -p artifacts/scripts
       - cp scripts/*.sh artifacts/scripts/
+      # Copy appspec.yml to artifacts root
       - cp appspec.yml artifacts/
       - echo "Build complete."
 
@@ -26,7 +28,8 @@ phases:
     commands:
       - echo "Zipping artifacts..."
       - cd artifacts
-      - zip -r ../deploy-package.zip .
+      # Flatten zip so appspec.yml is at the root
+      - zip -r ../deploy-package.zip *
       - cd ..
       - echo "Post-build complete."
 
