@@ -3,6 +3,7 @@ os: linux
 files:
   - source: /artifacts/ec2-app/nginx/conf.d
     destination: /etc/nginx/conf.d
+    file_exists_behavior: OVERWRITE  # Add this line here
   - source: /artifacts/ec2-app/fsx-analyzer
     destination: /var/www/html/fsx-analyzer
     file_exists_behavior: OVERWRITE
