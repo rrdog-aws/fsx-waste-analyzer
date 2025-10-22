@@ -8,8 +8,6 @@ phases:
   pre_build:
     commands:
       - echo "Checking which components changed"
-      # For simplicity, we'll deploy both components for now
-      # Once this works, we can add the change detection logic
       - LAMBDA_CHANGED="true"
       - EC2_CHANGED="true"
       - echo "Lambda changed is $LAMBDA_CHANGED"
@@ -18,66 +16,36 @@ phases:
   build:
     commands:
       - echo "Building components"
-      - if [ "$LAMBDA_CHANGED" = "true" ]; then echo "Building Lambda code"; fi
-      - if [ "$EC2_CHANGED" = "true" ]; then echo "Building EC2 code"; fi
+      - echo "Lambda changed is $LAMBDA_CHANGED"
+      - echo "EC2 changed is $EC2_CHANGED"
   
   post_build:
     commands:
       - echo "Creating deployment artifacts"
-      - mkdir -p artifacts
-      
-      # Create Lambda artifacts
-      - if [ "$LAMBDA_CHANGED" = "true" ]; then
-          echo "Packaging Lambda code";
-          mkdir -p artifacts/lambda;
-          cp -r lambda/src/* artifacts/lambda/;
-          echo '{"lambda": true}' > artifacts/lambda-config.json;
-        fi
-      
-      # Create EC2 artifacts - THIS IS THE CRITICAL PART
-      - if [ "$EC2_CHANGED" = "true" ]; then
-          echo "Packaging EC2 code";
-          mkdir -p artifacts/ec2-app;
-          cp -r ec2-app/* artifacts/ec2-app/;
-          mkdir -p scripts;
-          cp -r scripts/* artifacts/scripts/;
-          echo '{"ec2": true}' > artifacts/ec2-config.json;
-        fi
-      
-      # Copy deployment scripts if they don't exist
+      - mkdir -p artifacts/lambda
+      - mkdir -p artifacts/ec2-app
       - mkdir -p artifacts/scripts
-      - if [ ! -f scripts/before_install.sh ]; then
-          echo '#!/bin/bash
-          mkdir -p /var/www/html/fsx-analyzer
-          mkdir -p /etc/nginx/conf.d
-          systemctl stop nginx || true' > artifacts/scripts/before_install.sh;
-          chmod +x artifacts/scripts/before_install.sh;
-        else
-          cp scripts/before_install.sh artifacts/scripts/;
-        fi
-      
-      - if [ ! -f scripts/after_install.sh ]; then
-          echo '#!/bin/bash
-          chmod -R 755 /var/www/html/fsx-analyzer
-          chown -R nginx:nginx /var/www/html/fsx-analyzer' > artifacts/scripts/after_install.sh;
-          chmod +x artifacts/scripts/after_install.sh;
-        else
-          cp scripts/after_install.sh artifacts/scripts/;
-        fi
-      
-      - if [ ! -f scripts/start_services.sh ]; then
-          echo '#!/bin/bash
-          systemctl restart nginx' > artifacts/scripts/start_services.sh;
-          chmod +x artifacts/scripts/start_services.sh;
-        else
-          cp scripts/start_services.sh artifacts/scripts/;
-        fi
+      - cp -r lambda/src/* artifacts/lambda/ || echo "No Lambda files to copy"
+      - cp -r ec2-app/* artifacts/ec2-app/ || echo "No EC2 files to copy"
+      - echo "Creating deployment scripts"
+      - echo "#!/bin/bash" > artifacts/scripts/before_install.sh
+      - echo "mkdir -p /var/www/html/fsx-analyzer" >> artifacts/scripts/before_install.sh
+      - echo "mkdir -p /etc/nginx/conf.d" >> artifacts/scripts/before_install.sh
+      - echo "systemctl stop nginx || true" >> artifacts/scripts/before_install.sh
+      - echo "#!/bin/bash" > artifacts/scripts/after_install.sh
+      - echo "chmod -R 755 /var/www/html/fsx-analyzer" >> artifacts/scripts/after_install.sh
+      - echo "chown -R nginx:nginx /var/www/html/fsx-analyzer" >> artifacts/scripts/after_install.sh
+      - echo "#!/bin/bash" > artifacts/scripts/start_services.sh
+      - echo "systemctl restart nginx" >> artifacts/scripts/start_services.sh
+      - chmod +x artifacts/scripts/before_install.sh
+      - chmod +x artifacts/scripts/after_install.sh
+      - chmod +x artifacts/scripts/start_services.sh
+      - echo "Deployment preparation complete"
 
 artifacts:
   files:
     - appspec.yml
     - artifacts/**/*
-    - scripts/**/*
     - lambda-deploy.sh
     - lambda-buildspec.yml
   discard-paths: no
