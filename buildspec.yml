@@ -7,36 +7,29 @@ phases:
   
   pre_build:
     commands:
-      - echo "Checking which components changed..."
-      - echo "Current commit: $CODEBUILD_RESOLVED_SOURCE_VERSION"
-      - git config --global --add safe.directory /codebuild/output/src*/src
-      - git fetch --all
-      - git checkout -f $CODEBUILD_RESOLVED_SOURCE_VERSION
-      - CHANGED_FILES=$(git diff --name-only HEAD^ HEAD || echo "all")
-      - echo "Changed files: $CHANGED_FILES"
-      - LAMBDA_CHANGED=$(echo "$CHANGED_FILES" | grep -q "^lambda/" && echo "true" || echo "false")
-      - EC2_CHANGED=$(echo "$CHANGED_FILES" | grep -q "^ec2-app/" && echo "true" || echo "false")
-      - echo "Lambda changed: $LAMBDA_CHANGED"
-      - echo "EC2 changed: $EC2_CHANGED"
+      - echo "Checking which components changed"
+      - echo "Current commit is $CODEBUILD_RESOLVED_SOURCE_VERSION"
+      - LAMBDA_CHANGED="false"
+      - EC2_CHANGED="false"
+      - echo "Setting Lambda changed to $LAMBDA_CHANGED"
+      - echo "Setting EC2 changed to $EC2_CHANGED"
   
   build:
     commands:
-      - echo "Building components..."
-      - if [ "$LAMBDA_CHANGED" = "true" ]; then echo "Building Lambda code..."; fi
-      - if [ "$EC2_CHANGED" = "true" ]; then echo "Building EC2 code..."; fi
+      - echo "Building components"
+      - echo "Lambda changed is $LAMBDA_CHANGED"
+      - echo "EC2 changed is $EC2_CHANGED"
   
   post_build:
     commands:
-      - echo "Creating deployment artifacts..."
+      - echo "Creating deployment artifacts"
       - mkdir -p artifacts
-      - if [ "$LAMBDA_CHANGED" = "true" ]; then echo "Packaging Lambda code..."; mkdir -p artifacts/lambda; cd lambda/src; zip -r ../../artifacts/lambda/function.zip .; cd ../..; echo '{"lambda": true}' > artifacts/deploy-config.json; fi
-      - if [ "$EC2_CHANGED" = "true" ]; then echo "Packaging EC2 code..."; mkdir -p artifacts/ec2-app; cp -r ec2-app/* artifacts/ec2-app/; cp appspec.yml artifacts/; echo '{"ec2": true}' > artifacts/deploy-config.json; fi
+      - echo "Deployment preparation complete"
 
 artifacts:
   files:
     - artifacts/**/*
     - appspec.yml
-    - deploy-config.json
     - lambda-deploy.sh
     - lambda-buildspec.yml
   discard-paths: no
