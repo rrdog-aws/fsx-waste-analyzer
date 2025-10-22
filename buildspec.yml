@@ -8,13 +8,12 @@ phases:
   pre_build:
     commands:
       - echo "Checking which components changed..."
-      # Get the previous commit hash (last successful build)
-      - PREVIOUS_COMMIT=$(aws codepipeline get-pipeline-state --name $CODEPIPELINE_NAME | jq -r '.stageStates[0].actionStates[0].currentRevision.revisionId')
-      - echo "Previous commit: $PREVIOUS_COMMIT"
       - echo "Current commit: $CODEBUILD_RESOLVED_SOURCE_VERSION"
-      # If this is the first build, compare with the first commit
-      - if [ -z "$PREVIOUS_COMMIT" ]; then PREVIOUS_COMMIT=$(git rev-list --max-parents=0 HEAD); fi
-      - CHANGED_FILES=$(git diff --name-only $PREVIOUS_COMMIT $CODEBUILD_RESOLVED_SOURCE_VERSION || echo "all")
+      - git config --global --add safe.directory /codebuild/output/src*/src
+      - git fetch --all
+      - git checkout -f $CODEBUILD_RESOLVED_SOURCE_VERSION
+      - CHANGED_FILES=$(git diff --name-only HEAD^ HEAD || echo "all")
+      - echo "Changed files: $CHANGED_FILES"
       - LAMBDA_CHANGED=$(echo "$CHANGED_FILES" | grep -q "^lambda/" && echo "true" || echo "false")
       - EC2_CHANGED=$(echo "$CHANGED_FILES" | grep -q "^ec2-app/" && echo "true" || echo "false")
       - echo "Lambda changed: $LAMBDA_CHANGED"
@@ -22,7 +21,7 @@ phases:
   
   build:
     commands:
-      # Add build commands if needed for your specific project
+      - echo "Building components..."
       - if [ "$LAMBDA_CHANGED" = "true" ]; then echo "Building Lambda code..."; fi
       - if [ "$EC2_CHANGED" = "true" ]; then echo "Building EC2 code..."; fi
   
