@@ -1,16 +1,41 @@
-post_build:
-  commands:
-    - echo "Creating deployment artifacts"
-    - mkdir -p artifacts/lambda
-    - mkdir -p artifacts/ec2-app/fsx-analyzer
-    # Deliberately NOT creating artifacts/ec2-app/nginx/conf.d
-    - mkdir -p artifacts/scripts
-    
-    # Copy Lambda files
-    - cp -r lambda/src/* artifacts/lambda/ || echo "No Lambda files to copy"
-    
-    # Copy ONLY fsx-analyzer files, NOT nginx config
-    - cp -r ec2-app/fsx-analyzer/* artifacts/ec2-app/fsx-analyzer/ || echo "No fsx-analyzer files to copy"
-    
-    # Create deployment scripts
-    # [script creation commands as before]
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.9
+  
+  pre_build:
+    commands:
+      - echo "Preparing build"
+  
+  build:
+    commands:
+      - echo "Building components"
+  
+  post_build:
+    commands:
+      - echo "Creating deployment artifacts"
+      - mkdir -p artifacts/lambda
+      - mkdir -p artifacts/ec2-app/fsx-analyzer
+      - mkdir -p artifacts/scripts
+      - cp -r lambda/src/* artifacts/lambda/ || echo "No Lambda files to copy"
+      - cp -r ec2-app/fsx-analyzer/* artifacts/ec2-app/fsx-analyzer/ || echo "No fsx-analyzer files to copy"
+      - echo "#!/bin/bash" > artifacts/scripts/before_install.sh
+      - echo "mkdir -p /var/www/html/fsx-analyzer" >> artifacts/scripts/before_install.sh
+      - echo "rm -f /var/www/html/fsx-analyzer/analyze_fsx.php" >> artifacts/scripts/before_install.sh
+      - echo "systemctl stop nginx || true" >> artifacts/scripts/before_install.sh
+      - echo "#!/bin/bash" > artifacts/scripts/after_install.sh
+      - echo "chmod -R 755 /var/www/html/fsx-analyzer" >> artifacts/scripts/after_install.sh
+      - echo "chown -R nginx:nginx /var/www/html/fsx-analyzer" >> artifacts/scripts/after_install.sh
+      - echo "#!/bin/bash" > artifacts/scripts/start_services.sh
+      - echo "systemctl restart nginx" >> artifacts/scripts/start_services.sh
+      - chmod +x artifacts/scripts/before_install.sh
+      - chmod +x artifacts/scripts/after_install.sh
+      - chmod +x artifacts/scripts/start_services.sh
+
+artifacts:
+  files:
+    - appspec.yml
+    - artifacts/**/*
+  discard-paths: no
