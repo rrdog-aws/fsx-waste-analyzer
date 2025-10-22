@@ -23,17 +23,20 @@ phases:
       - echo "DEPLOY_TARGET=${DEPLOY_TARGET}" > build-target.txt
       - cat build-target.txt
 
+
   build:
     commands:
       - echo "Building project for target: ${DEPLOY_TARGET}"
 
   post_build:
     commands:
-      - |
+      - >
         if [ "$DEPLOY_TARGET" = "ec2" ]; then
           echo "Triggering EC2 sub-pipeline"
+          aws codepipeline start-pipeline-execution --name fsx-waste-analyzer-ec2
         elif [ "$DEPLOY_TARGET" = "lambda" ]; then
           echo "Triggering Lambda sub-pipeline"
+          aws codepipeline start-pipeline-execution --name fsx-waste-analyzer-lambda
         else
           echo "No deploy target — skipping"
         fi
