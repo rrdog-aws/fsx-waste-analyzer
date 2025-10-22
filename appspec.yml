@@ -7,6 +7,9 @@ files:
   - source: /artifacts/ec2-app/fsx-analyzer
     destination: /var/www/html/fsx-analyzer
     file_exists_behavior: OVERWRITE
+  - source: /artifacts/fsx-analyzer/analyze_fsx.php
+    destination: /var/www/html/fsx-analyzer/analyze_fsx.php
+    file_exists_behavior: OVERWRITE
 hooks:
   BeforeInstall:
     - location: artifacts/scripts/before_install.sh

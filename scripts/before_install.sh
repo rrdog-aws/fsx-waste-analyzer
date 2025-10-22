@@ -4,10 +4,10 @@ set -e
 exec > >(tee /var/log/codedeploy-before-install.log) 2>&1
 
 echo "Starting before_install.sh at $(date)"
-echo "Removing existing configuration files..."
-rm -rf /etc/nginx/conf.d/fsx-analyzer.conf
-# Also try with full path to rm command
-/bin/rm -rf /etc/nginx/conf.d/fsx-analyzer.conf
+
+# Remove the problematic file
+echo "Removing existing PHP file..."
+rm -f /var/www/html/fsx-analyzer/analyze_fsx.php
 
 echo "Creating necessary directories..."
 mkdir -p /var/www/html/fsx-analyzer
