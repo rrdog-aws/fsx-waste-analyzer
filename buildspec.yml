@@ -1,44 +1,29 @@
 version: 0.2
 
-env:
-  variables:
-    DEPLOY_TARGET: "none"
-
 phases:
   install:
-    runtime-versions:
-      python: 3.9
+    commands:
+      - echo "Installing dependencies..."
+      - apt-get update -y || true
 
   pre_build:
     commands:
-      - echo "Detecting changes to determine deployment target..."
-      - |
-        if git diff --name-only HEAD~1 HEAD | grep -E '^ec2-app/|^nginx/|^appspec.yml|^index.html'; then
-          echo "Detected EC2 changes"
-          export DEPLOY_TARGET="ec2"
-        elif git diff --name-only HEAD~1 HEAD | grep -E '^lambda/'; then
-          echo "Detected Lambda changes"
-          export DEPLOY_TARGET="lambda"
-        else
-          echo "No deployable changes detected"
-          export DEPLOY_TARGET="none"
-        fi
-      - echo "DEPLOY_TARGET=${DEPLOY_TARGET}" > build-target.txt
-      - cat build-target.txt
+      - echo "Preparing build environment..."
 
   build:
     commands:
-      - echo "Building project for target: ${DEPLOY_TARGET}"
+      - echo "Building EC2 artifact..."
+      - mkdir -p artifacts/ec2-app/fsx-analyzer
+      - cp -r ec2-app/fsx-analyzer/* artifacts/ec2-app/fsx-analyzer/
+      - mkdir -p artifacts/scripts
+      - cp scripts/*.sh artifacts/scripts/
+      - cp appspec.yml artifacts/
+      - echo "Build complete."
 
   post_build:
     commands:
-      - |
-        if [ "$DEPLOY_TARGET" = "ec2" ]; then
-          echo "Triggering EC2 sub-pipeline"
-          aws codepipeline start-pipeline-execution --name fsx-waste-analyzer-ec2
-        elif [ "$DEPLOY_TARGET" = "lambda" ]; then
-          echo "Triggering Lambda sub-pipeline"
-          aws codepipeline start-pipeline-execution --name fsx-waste-analyzer-lambda
-        else
-          echo "No deploy target — skipping"
-        fi
+      - echo "Zipping artifacts..."
+      - cd artifacts
+      - zip -r ../deploy-package.zip .
+      - cd ..
+      - echo "Post-build complete."
