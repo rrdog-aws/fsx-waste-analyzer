@@ -4,6 +4,8 @@ set -e
 exec > >(tee /var/log/codedeploy-before-install.log) 2>&1
 
 echo "Starting before_install.sh at $(date)"
+rm -f /etc/nginx/conf.d/fsx-analyzer.conf
+
 echo "Creating necessary directories..."
 mkdir -p /var/www/html/fsx-analyzer
 mkdir -p /etc/nginx/conf.d
