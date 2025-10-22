@@ -22,25 +22,18 @@ phases:
   post_build:
     commands:
       - echo "Creating deployment artifacts"
-      - mkdir -p artifacts/lambda
-      - mkdir -p artifacts/ec2-app
+      - mkdir -p artifacts/ec2-app/fsx-analyzer
       - mkdir -p artifacts/scripts
-      - cp -r lambda/src/* artifacts/lambda/ || echo "No Lambda files to copy"
-      - cp -r ec2-app/* artifacts/ec2-app/ || echo "No EC2 files to copy"
-      - echo "Creating deployment scripts"
-      - echo "#!/bin/bash" > artifacts/scripts/before_install.sh
-      - echo "mkdir -p /var/www/html/fsx-analyzer" >> artifacts/scripts/before_install.sh
-      - echo "mkdir -p /etc/nginx/conf.d" >> artifacts/scripts/before_install.sh
-      - echo "systemctl stop nginx || true" >> artifacts/scripts/before_install.sh
-      - echo "#!/bin/bash" > artifacts/scripts/after_install.sh
-      - echo "chmod -R 755 /var/www/html/fsx-analyzer" >> artifacts/scripts/after_install.sh
-      - echo "chown -R nginx:nginx /var/www/html/fsx-analyzer" >> artifacts/scripts/after_install.sh
-      - echo "#!/bin/bash" > artifacts/scripts/start_services.sh
-      - echo "systemctl restart nginx" >> artifacts/scripts/start_services.sh
-      - chmod +x artifacts/scripts/before_install.sh
-      - chmod +x artifacts/scripts/after_install.sh
-      - chmod +x artifacts/scripts/start_services.sh
-      - echo "Deployment preparation complete"
+    
+      # Copy files with verbose output
+      - echo "Copying EC2 files..."
+      - cp -rv ec2-app/fsx-analyzer/* artifacts/ec2-app/fsx-analyzer/ || echo "No fsx-analyzer files to copy"
+      - ls -la artifacts/ec2-app/fsx-analyzer/
+    
+      # Create scripts
+      - echo "Creating deployment scripts..."
+      # (your script creation commands)
+
 
 artifacts:
   files:
