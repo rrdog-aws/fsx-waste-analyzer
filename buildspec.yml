@@ -12,17 +12,19 @@ phases:
   pre_build:
     commands:
       - echo "Detecting changes to determine deployment target..."
-      - >
+      - |
         if git diff --name-only HEAD~1 HEAD | grep -E '^ec2-app/|^nginx/|^appspec.yml|^index.html'; then
-          echo "Detected EC2 changes"; export DEPLOY_TARGET="ec2";
+            echo "Detected EC2 changes"
+            export DEPLOY_TARGET="ec2"
         elif git diff --name-only HEAD~1 HEAD | grep -E '^lambda/'; then
-          echo "Detected Lambda changes"; export DEPLOY_TARGET="lambda";
+            echo "Detected Lambda changes"
+            export DEPLOY_TARGET="lambda"
         else
-          echo "No deployable changes detected"; export DEPLOY_TARGET="none";
+            echo "No deployable changes detected"
+            export DEPLOY_TARGET="none"
         fi
       - echo "DEPLOY_TARGET=${DEPLOY_TARGET}" > build-target.txt
       - cat build-target.txt
-
 
   build:
     commands:
@@ -30,13 +32,13 @@ phases:
 
   post_build:
     commands:
-      - >
+      - |
         if [ "$DEPLOY_TARGET" = "ec2" ]; then
-          echo "Triggering EC2 sub-pipeline"
-          aws codepipeline start-pipeline-execution --name fsx-waste-analyzer-ec2
+            echo "Triggering EC2 sub-pipeline"
+            aws codepipeline start-pipeline-execution --name fsx-waste-analyzer-ec2
         elif [ "$DEPLOY_TARGET" = "lambda" ]; then
-          echo "Triggering Lambda sub-pipeline"
-          aws codepipeline start-pipeline-execution --name fsx-waste-analyzer-lambda
+            echo "Triggering Lambda sub-pipeline"
+            aws codepipeline start-pipeline-execution --name fsx-waste-analyzer-lambda
         else
-          echo "No deploy target — skipping"
+            echo "No deploy target — skipping"
         fi
