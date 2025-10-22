@@ -2,6 +2,8 @@ version: 0.2
 
 phases:
   install:
+    runtime-versions:
+      python: 3.11  # optional, remove if not needed
     commands:
       - echo "Installing dependencies..."
       - apt-get update -y || true
@@ -27,3 +29,9 @@ phases:
       - zip -r ../deploy-package.zip .
       - cd ..
       - echo "Post-build complete."
+
+artifacts:
+  files:
+    - deploy-package.zip
+  name: BuildArtif
+  discard-paths: yes
