@@ -10,7 +10,7 @@ phases:
     commands:
       - echo Preparing Lambda package...
       - mkdir -p build/package
-      - cp main.py build/package/
+      - cp lambda/src/main.py build/package/
   build:
     commands:
       - echo Packaging Lambda zip...
