@@ -5,23 +5,23 @@ phases:
     runtime-versions:
       python: 3.9
     commands:
-      - echo "Installing dependencies..."
+      - echo "Installing pip..."
       - pip install --upgrade pip
 
   pre_build:
     commands:
-      - echo "Preparing build directory..."
+      - echo "Cleaning and preparing build folder..."
       - rm -rf build_root
       - mkdir -p build_root
 
   build:
     commands:
       - echo "Copying main.py to build root..."
-      - cp lambda/src/main.py build_root/
-      - echo "Installing dependencies to build root..."
+      - cp lambda/main.py build_root/
+      - echo "Installing dependencies into build root..."
       - if [ -f requirements.txt ]; then pip install -r requirements.txt -t build_root/; else echo "No requirements.txt found, skipping"; fi
       - cd build_root
-      - echo "Contents of build root:"
+      - echo "Verifying contents of build root:"
       - ls -la
       - echo "Creating Lambda deployment package..."
       - zip -r9 ../lambda_package.zip .
