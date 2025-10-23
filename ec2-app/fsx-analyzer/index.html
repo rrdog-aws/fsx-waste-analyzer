@@ -189,32 +189,32 @@
             const button = document.getElementById('analyzeButton');
             const loading = document.getElementById('loading');
             const error = document.getElementById('error');
-            const results = document.getElementById('results');
+            const resultsDiv = document.getElementById('results');
 
             try {
                 button.disabled = true;
                 loading.style.display = 'block';
-                results.style.display = 'none';
+                resultsDiv.style.display = 'none';
                 error.style.display = 'none';
 
                 console.log('Starting API call...');
                 
-                // Call the API
                 const response = await fetch('https://0c345js9lc.execute-api.us-east-1.amazonaws.com/prod');
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                // Parse JSON response
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
                 const data = await response.json();
-                
-                // Generate HTML from the JSON data
-                const htmlContent = generateHtmlFromJson(data);
-                
-                // Display the generated HTML
-                results.innerHTML = htmlContent;
-                results.style.display = 'block';
+
+                // SAFETY CHECKS
+                const results = Array.isArray(data.results) ? data.results : [];
+                const timestamp = data.timestamp || new Date().toISOString();
+
+                if (!results.length) {
+                    resultsDiv.innerHTML = `<p>${data.results?.message || 'No results available'}</p>`;
+                } else {
+                    resultsDiv.innerHTML = generateHtmlFromJson({ results, timestamp });
+                }
+
+                resultsDiv.style.display = 'block';
 
             } catch (err) {
                 console.error('Error:', err);
@@ -230,14 +230,7 @@
             let html = `<h1>FSx Analysis Report</h1>
                         <div class="timestamp">Generated: ${data.timestamp}</div>`;
             
-            const results = data.results;
-            
-            if (!Array.isArray(results)) {
-                return `<p>${results.message || 'No results available'}</p>`;
-            }
-            
-            // Generate HTML for each filesystem
-            results.forEach(fs => {
+            data.results.forEach(fs => {
                 html += `
                 <table class="volume-table">
                     <tr class="fs-header"><td colspan="2"><h2 style="color: black;"> Filesystem: ${fs.fsid} </h2></td></tr>
@@ -249,20 +242,17 @@
                     <tr><td>Monthly Cost</td><td>$${fs.monthly_cost_estimate.toFixed(2)}</td></tr>
                     <tr><td>Efficiency</td><td>${fs.storage_efficiency}%</td></tr>
                     <tr><td class="section-title">Tags</td>
-                        <td>${fs.tags && fs.tags.length ? fs.tags.map(t => `<span class="tag">${t.Key}: ${t.Value}</span>`).join(' ') : 'No tags'}</td>
+                        <td>${fs.tags?.length ? fs.tags.map(t => `<span class="tag">${t.Key}: ${t.Value}</span>`).join(' ') : 'No tags'}</td>
                     </tr>
                     <tr class="recommendations">
                         <td colspan="2">
                             <div class="section-title">Recommendations</div>
-                            ${fs.recommendations && fs.recommendations.length ? 
-                              fs.recommendations.map(rec => `<div class="${rec.type}">• ${rec.message}</div>`).join('') : 
-                              '<div>None</div>'}
+                            ${fs.recommendations?.length ? fs.recommendations.map(rec => `<div class="${rec.type}">• ${rec.message}</div>`).join('') : '<div>None</div>'}
                         </td>
                     </tr>
                 </table>`;
                 
-                // Volume table
-                if (fs.volumes && fs.volumes.length) {
+                if (fs.volumes?.length) {
                     html += `
                     <table class="volume-table">
                         <tr><th colspan="6">Volumes for ${fs.fsid}</th></tr>
@@ -277,12 +267,8 @@
                         
                     fs.volumes.forEach(vol => {
                         const recs = vol.recommendations ? 
-                            vol.recommendations
-                                .filter(r => r.type !== "separator")
-                                .map(r => `<div class="${r.type}">• ${r.message}</div>`)
-                                .join('') : 
+                            vol.recommendations.filter(r => r.type !== "separator").map(r => `<div class="${r.type}">• ${r.message}</div>`).join('') : 
                             'None';
-                            
                         html += `
                         <tr>
                             <td>${vol.path}</td>
@@ -294,10 +280,10 @@
                         </tr>`;
                     });
                     
-                    html += "</table>";
+                    html += `</table>`;
                 }
             });
-            
+
             html += `<div class="footer">FSx Analyzer — AWS Optimization Report</div>`;
             return html;
         }
