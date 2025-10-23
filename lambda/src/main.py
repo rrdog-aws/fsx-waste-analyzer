@@ -6,7 +6,6 @@ import math
 import os
 from decimal import Decimal
 
-# Logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
