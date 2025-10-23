@@ -11,7 +11,8 @@ phases:
       - mkdir -p build/package
       - pip install -r requirements.txt -t build/package || echo "No requirements.txt found, skipping."
       - mkdir -p build/package/src
-      - cp lambda/src/main.py build/package/src/  # Copy to src directory
+      - cp lambda/src/main.py build/package/src/
+      - touch build/package/src/__init__.py  # Create empty __init__.py file to make src a proper package
   build:
     commands:
       - echo Zipping deployment package...
