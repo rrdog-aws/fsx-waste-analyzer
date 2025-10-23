@@ -4,20 +4,27 @@ phases:
   install:
     runtime-versions:
       python: 3.9
+    commands:
+      - echo "Installing dependencies..."
+      - pip install --upgrade pip
 
   pre_build:
     commands:
-      - echo Installing dependencies...
-      - mkdir -p build
-      - pip install -r requirements.txt -t build || echo "No requirements.txt found, skipping."
-      
+      - echo "Preparing build directory..."
+      - rm -rf build_root
+      - mkdir -p build_root
+
   build:
     commands:
-      - echo "Creating deployment package..."
-      - cp lambda/src/main.py build/  # Copy main.py directly to the root of build directory
-      - cd build
-      - ls -la  # Verify files are in the right place
-      - zip -r9 ../lambda_package.zip .  # Create zip with contents of build directory
+      - echo "Copying main.py to build root..."
+      - cp lambda/src/main.py build_root/
+      - echo "Installing dependencies to build root..."
+      - if [ -f requirements.txt ]; then pip install -r requirements.txt -t build_root/; else echo "No requirements.txt found, skipping"; fi
+      - cd build_root
+      - echo "Contents of build root:"
+      - ls -la
+      - echo "Creating Lambda deployment package..."
+      - zip -r9 ../lambda_package.zip .
 
 artifacts:
   files:
