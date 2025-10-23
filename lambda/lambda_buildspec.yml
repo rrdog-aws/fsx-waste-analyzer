@@ -16,7 +16,7 @@ phases:
     commands:
       - echo Packaging Lambda zip...
       - cd build/package
-      - zip -r9 ../../lambda_package.zip .
+      - zip -r9 ../lambda_package.zip .
 artifacts:
   files:
     - build/lambda_package.zip
