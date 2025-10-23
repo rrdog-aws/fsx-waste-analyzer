@@ -10,8 +10,7 @@ phases:
       - echo Installing dependencies...
       - mkdir -p build/package
       - pip install -r requirements.txt -t build/package || echo "No requirements.txt found, skipping."
-      - cp main.py build/package/  # or lambda_function.py if that's your file name
-
+      - cp lambda/src/main.py build/package/  
   build:
     commands:
       - echo Zipping deployment package...
