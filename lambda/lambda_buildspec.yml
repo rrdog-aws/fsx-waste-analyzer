@@ -8,17 +8,16 @@ phases:
   pre_build:
     commands:
       - echo Installing dependencies...
-      - mkdir -p build/package
-      - pip install -r requirements.txt -t build/package || echo "No requirements.txt found, skipping."
-      - mkdir -p build/package/src
-      - cp lambda/src/main.py build/package/src/
-      - touch build/package/src/__init__.py  # Create empty __init__.py file to make src a proper package
+      - mkdir -p build
+      - pip install -r requirements.txt -t build || echo "No requirements.txt found, skipping."
+      
   build:
     commands:
-      - echo Zipping deployment package...
-      - cd build/package
+      - echo "Creating deployment package..."
+      - cp lambda/src/main.py build/  # Copy main.py to the root of build
+      - cd build
       - zip -r9 ../lambda_package.zip .
 
 artifacts:
   files:
-    - build/lambda_package.zip
+    - lambda_package.zip
