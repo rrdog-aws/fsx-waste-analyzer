@@ -5,12 +5,13 @@ phases:
     runtime-versions:
       python: 3.11
     commands:
-      - echo No dependencies to install...
+      - echo Installing dependencies...
+      - pip install -r requirements.txt -t build/ || echo "No requirements.txt, skipping..."
   pre_build:
     commands:
       - echo Preparing Lambda package...
       - mkdir -p build/package
-      - cp lambda/src/main.py build/package/
+      - cp src/main.py build/package/
   build:
     commands:
       - echo Packaging Lambda zip...
@@ -18,5 +19,4 @@ phases:
       - zip -r9 ../../lambda_package.zip .
 artifacts:
   files:
-    - lambda_package.zip
-  base-directory: build
+    - build/lambda_package.zip
