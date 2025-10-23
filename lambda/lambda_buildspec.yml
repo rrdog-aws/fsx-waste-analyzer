@@ -18,4 +18,5 @@ phases:
       - zip -r9 ../../lambda_package.zip .
 artifacts:
   files:
-    - build/lambda_package.zip
+    - lambda_package.zip
+  base-directory: build
