@@ -3,7 +3,7 @@ version: 0.2
 phases:
   install:
     runtime-versions:
-      python: 3.11  # optional, remove if not needed
+      python: 3.11
     commands:
       - echo "Installing dependencies..."
       - apt-get update -y || true
@@ -15,26 +15,16 @@ phases:
   build:
     commands:
       - echo "Building EC2 artifact..."
-      # Create folders for app and scripts
       - mkdir -p artifacts/ec2-app/fsx-analyzer
       - cp -r ec2-app/fsx-analyzer/* artifacts/ec2-app/fsx-analyzer/
       - mkdir -p artifacts/scripts
       - cp scripts/*.sh artifacts/scripts/
-      # Copy appspec.yml to artifacts root
       - cp appspec.yml artifacts/
       - echo "Build complete."
 
-  post_build:
-    commands:
-      - echo "Zipping artifacts..."
-      - cd artifacts
-      # Flatten zip so appspec.yml is at the root
-      - zip -r ../deploy-package.zip *
-      - cd ..
-      - echo "Post-build complete."
-
 artifacts:
+  base-directory: artifacts
   files:
-    - deploy-package.zip
+    - '**/*'
   name: BuildArtif
-  discard-paths: yes
+  discard-paths: no
