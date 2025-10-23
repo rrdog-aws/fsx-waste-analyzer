@@ -14,9 +14,10 @@ phases:
   build:
     commands:
       - echo "Creating deployment package..."
-      - cp lambda/src/main.py build/  # Copy main.py to the root of build
+      - cp lambda/src/main.py build/  # Copy main.py directly to the root of build directory
       - cd build
-      - zip -r9 ../lambda_package.zip .
+      - ls -la  # Verify files are in the right place
+      - zip -r9 ../lambda_package.zip .  # Create zip with contents of build directory
 
 artifacts:
   files:
