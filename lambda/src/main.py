@@ -6,15 +6,8 @@ import math
 import os
 from decimal import Decimal
 
-# Set up logger
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-
-# Helper function to handle Decimal serialization
-def decimal_serializer(obj):
-    if isinstance(obj, Decimal):
-        return float(obj)
-    raise TypeError("Type not serializable")
 
 def lambda_handler(event, context):
     """Lambda handler for FSx analysis"""
@@ -23,6 +16,7 @@ def lambda_handler(event, context):
         
         # Handle OPTIONS request for CORS
         if event and event.get('httpMethod') == 'OPTIONS':
+            logger.info("Handling OPTIONS request")
             return {
                 'statusCode': 200,
                 'headers': {
@@ -55,8 +49,6 @@ def lambda_handler(event, context):
             
         def start_utc():
             return (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=lookback_days)).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-        # ---------- Helper functions ----------
 
         def check_encryption(fsid):
             """Check if filesystem is encrypted"""
@@ -140,20 +132,24 @@ def lambda_handler(event, context):
                 return None
 
         def get_tags(fsid):
+            """Fetch tags for a given FSx filesystem"""
             try:
                 if not fsid:
                     return []
+                    
                 response = fsx_client.describe_file_systems(FileSystemIds=[fsid])
                 if response and 'FileSystems' in response and response['FileSystems']:
                     return response['FileSystems'][0].get('Tags', [])
             except Exception as e:
                 logger.error(f"Error fetching tags for {fsid}: {str(e)}")
             return []
-
+            
         def get_volume_tags(volid):
+            """Fetch tags for a given volume"""
             try:
                 if not volid:
                     return []
+                    
                 response = fsx_client.describe_volumes(VolumeIds=[volid])
                 if response and 'Volumes' in response and response['Volumes']:
                     return response['Volumes'][0].get('Tags', [])
@@ -162,6 +158,7 @@ def lambda_handler(event, context):
             return []
 
         def get_fs_list():
+            """Get list of FSx filesystems"""
             try:
                 if fsid:
                     src = fsx_client.describe_file_systems(FileSystemIds=[fsid])
@@ -181,9 +178,11 @@ def lambda_handler(event, context):
                 return []
 
         def get_svms(fsid):
+            """Get Storage Virtual Machines for a filesystem"""
             try:
                 if not fsid:
                     return []
+                    
                 response = fsx_client.describe_storage_virtual_machines(
                     Filters=[{'Name': 'file-system-id', 'Values': [fsid]}]
                 )
@@ -193,9 +192,11 @@ def lambda_handler(event, context):
                 return []
 
         def get_vols(fsid):
+            """Get volumes for a filesystem"""
             try:
                 if not fsid:
                     return []
+                    
                 response = fsx_client.describe_volumes(
                     Filters=[{'Name': 'file-system-id', 'Values': [fsid]}]
                 )
@@ -205,9 +206,11 @@ def lambda_handler(event, context):
                 return []
 
         def get_series(metric, fsid, volid):
+            """Get CloudWatch metric data"""
             try:
                 if not fsid or not volid:
                     return []
+
                 response = cloudwatch.get_metric_statistics(
                     Namespace='AWS/FSx',
                     MetricName=metric,
@@ -220,6 +223,7 @@ def lambda_handler(event, context):
                     Period=period,
                     Statistics=['Sum']
                 )
+                
                 if response and 'Datapoints' in response:
                     datapoints = sorted(response['Datapoints'], key=lambda x: x['Timestamp'])
                     return [dp.get('Sum', 0) for dp in datapoints]
@@ -229,18 +233,23 @@ def lambda_handler(event, context):
                 return []
 
         def get_storage_efficiency_savings(fsid):
+            """Get storage efficiency savings for a filesystem"""
             try:
                 if not fsid:
                     return 0
+
                 response = cloudwatch.get_metric_statistics(
                     Namespace='AWS/FSx',
                     MetricName='StorageEfficiencySavings',
-                    Dimensions=[{'Name': 'FileSystemId', 'Value': fsid}],
+                    Dimensions=[
+                        {'Name': 'FileSystemId', 'Value': fsid}
+                    ],
                     StartTime=datetime.datetime.strptime(start_utc(), "%Y-%m-%dT%H:%M:%SZ"),
                     EndTime=datetime.datetime.strptime(now_utc(), "%Y-%m-%dT%H:%M:%SZ"),
                     Period=period,
                     Statistics=['Average']
                 )
+                
                 if response and 'Datapoints' in response:
                     datapoints = sorted(response['Datapoints'], key=lambda x: x['Timestamp'])
                     if datapoints:
@@ -251,14 +260,17 @@ def lambda_handler(event, context):
                 return 0
 
         def pct_calc(values, p):
+            """Calculate percentile value"""
             try:
                 if not values:
                     return 0
+                    
                 values = sorted(values)
                 n = len(values) - 1
                 r = n * (p / 100)
                 lo = math.floor(r)
                 hi = math.ceil(r)
+                
                 if lo == hi:
                     return values[lo]
                 else:
@@ -268,8 +280,10 @@ def lambda_handler(event, context):
                 return 0
 
         def p95_mb_s(fsid, volid, metric):
+            """Calculate 95th percentile MB/s for a metric"""
             try:
                 series = get_series(metric, fsid, volid)
+                # Convert bytes/period -> MB/s
                 mb_per_s = [(val / mb) / period for val in series]
                 return pct_calc(sorted(mb_per_s), pctl)
             except Exception as e:
@@ -277,6 +291,7 @@ def lambda_handler(event, context):
                 return 0
 
         def process_volume(vol, svms, fsid):
+            """Process individual volume data"""
             try:
                 vid = vol.get('VolumeId')
                 svmid = vol.get('OntapConfiguration', {}).get('StorageVirtualMachineId', '')
@@ -284,14 +299,23 @@ def lambda_handler(event, context):
                 sizegib = math.floor(vol.get('OntapConfiguration', {}).get('SizeInMegabytes', 0) / 1024)
                 tier = vol.get('OntapConfiguration', {}).get('TieringPolicy', {}).get('Name', 'UNKNOWN')
 
+                # Get volume tags
                 vol_tags = get_volume_tags(vid)
-                formatted_vol_tags = [{'Key': t.get('Key',''), 'Value': t.get('Value','')} for t in vol_tags if t.get('Key') and t.get('Value')]
-                svmname = next((svm.get('Name','') for svm in svms if svm.get('StorageVirtualMachineId') == svmid), '')
+                formatted_vol_tags = [{
+                    'Key': tag.get('Key', ''),
+                    'Value': tag.get('Value', '')
+                } for tag in vol_tags if tag.get('Key') and tag.get('Value')]
 
+                # Find SVM name
+                svmname = next((svm.get('Name', '') for svm in svms 
+                              if svm.get('StorageVirtualMachineId') == svmid), '')
+
+                # Get metrics
                 r95 = p95_mb_s(fsid, vid, "DataReadBytes")
                 w95 = p95_mb_s(fsid, vid, "DataWriteBytes")
                 total_io = r95 + w95
 
+                # Get long-term IO usage
                 io_usage = get_io_usage_45d(fsid, vid)
                 if io_usage:
                     long_term_io = {
@@ -299,27 +323,45 @@ def lambda_handler(event, context):
                         "write_45d": sum(io_usage.get("DataWriteBytes", [])) / (45 * 86400)
                     }
                 else:
-                    long_term_io = {"read_45d":0, "write_45d":0}
+                    long_term_io = {"read_45d": 0, "write_45d": 0}
 
+                # Storage efficiency
                 logical_size = vol.get('OntapConfiguration', {}).get('StorageEfficiencyAttributes', {}).get('LogicalSizeInBytes', 0)
                 physical_size = vol.get('OntapConfiguration', {}).get('StorageEfficiencyAttributes', {}).get('PhysicalSizeInBytes', 0)
-                efficiency_ratio = logical_size / physical_size if physical_size>0 else 0
+                efficiency_ratio = logical_size / physical_size if physical_size > 0 else 0
 
+                # Generate recommendations
                 vol_recommendations = []
+
+                # Size recommendation
                 if sizegib < 10:
                     vol_recommendations.extend([
-                        {"type":"info","message":f"Volume is small ({sizegib} GiB). Consider consolidating or deleting if unused to reduce costs."},
-                        {"type":"separator","message":""}
+                        {
+                            "type": "info",
+                            "message": f"Volume is small ({sizegib} GiB). Consider consolidating or deleting if unused to reduce costs."
+                        },
+                        {"type": "separator", "message": ""}
                     ])
+
+                # IO recommendation
                 if total_io < cold_io_threshold:
                     vol_recommendations.extend([
-                        {"type":"warning","message":f"Volume has low IO ({total_io:.2f} MB/s). Consider reviewing lifecycle policies to archive or delete stale data."},
-                        {"type":"separator","message":""}
+                        {
+                            "type": "warning",
+                            "message": f"Volume has low IO ({total_io:.2f} MB/s). Consider reviewing lifecycle policies to archive or delete stale data."
+                        },
+                        {"type": "separator", "message": ""}
                     ])
-                if efficiency_ratio>0 and efficiency_ratio<1.5:
-                    vol_recommendations.append({"type":"info","message":f"Storage efficiency ratio is low ({efficiency_ratio:.2f}). Consider enabling or tuning deduplication, compression, and compaction."})
 
-                monthly_cost = get_storage_cost(region)*sizegib
+                # Efficiency recommendation
+                if efficiency_ratio > 0 and efficiency_ratio < 1.5:
+                    vol_recommendations.append({
+                        "type": "info",
+                        "message": f"Storage efficiency ratio is low ({efficiency_ratio:.2f}). Consider enabling or tuning deduplication, compression, and compaction."
+                    })
+
+                # Calculate estimated monthly cost
+                monthly_cost = get_storage_cost(region) * sizegib
 
                 return {
                     "id": vid,
@@ -332,154 +374,219 @@ def lambda_handler(event, context):
                     "read_throughput_mbs": r95,
                     "write_throughput_mbs": w95,
                     "total_throughput_mbs": total_io,
-                    "efficiency_ratio": f"{efficiency_ratio:.2f}" if efficiency_ratio>0 else "N/A",
-                    "usage_percentage": (physical_size/(sizegib*1024*1024*1024))*100 if sizegib>0 else 0,
+                    "efficiency_ratio": f"{efficiency_ratio:.2f}" if efficiency_ratio > 0 else "N/A",
+                    "usage_percentage": (physical_size / (sizegib * 1024 * 1024 * 1024)) * 100 if sizegib > 0 else 0,
                     "monthly_cost_estimate": monthly_cost,
                     "long_term_io": long_term_io,
                     "recommendations": vol_recommendations
                 }
 
             except Exception as e:
-                logger.error(f"Error processing volume {vol.get('VolumeId','unknown')}: {str(e)}")
+                logger.error(f"Error processing volume {vol.get('VolumeId', 'unknown')}: {str(e)}")
                 return None
-
+                
         def analyze_filesystems():
             try:
+                logger.info(f"AWS Region={region} Window={lookback_days}d Period={period}s p{pctl}")
                 fs_list = get_fs_list()
-                results=[]
                 if not fs_list:
-                    results.append({
-                        "fsid":"N/A",
-                        "gen":"N/A",
-                        "state":"N/A",
-                        "deployment_type":"N/A",
-                        "storage_gib":0,
-                        "provisioned_gib":0,
-                        "slack_gib":0,
-                        "slack_percentage":0,
-                        "throughput_capacity":0,
-                        "total_read_throughput":0,
-                        "total_write_throughput":0,
-                        "total_throughput":0,
-                        "storage_efficiency":"N/A",
-                        "storage_efficiency_percentage":0,
-                        "monthly_cost_estimate":0,
-                        "encryption_status":{"type":"info","message":"No FSx filesystems found."},
-                        "tags":[],
-                        "volumes":[],
-                        "recommendations":[{"type":"info","message":"No FSx filesystems found."}]
-                    })
-                    return results
-
+                    return {"message": f"No FSx for NetApp ONTAP Gen-1 in {region}"}
+                
+                results = []
                 for fs in fs_list:
-                    fsid_val = fs.get('FileSystemId')
-                    if not fsid_val: continue
+                    if not fs:
+                        continue
 
-                    gen = fs.get('OntapConfiguration', {}).get('FileSystemTypeVersion','GEN_1')
-                    state = fs.get('Lifecycle','UNKNOWN')
-                    fs_gib = fs.get('StorageCapacity',0)
-                    tp = fs.get('OntapConfiguration', {}).get('ThroughputCapacity',0)
-                    deployment_type = fs.get('OntapConfiguration', {}).get('DeploymentType','Unknown')
+                    fsid = fs.get('FileSystemId')
+                    if not fsid:
+                        continue
 
-                    encryption_status = check_encryption(fsid_val)
-                    fs_tags_raw = get_tags(fsid_val)
-                    formatted_fs_tags = [{'Key':t.get('Key',''),'Value':t.get('Value','')} for t in fs_tags_raw if t.get('Key') and t.get('Value')]
-
-                    svms = get_svms(fsid_val)
-                    vols = get_vols(fsid_val)
-                    vol_results=[]
-                    tot_r=0
-                    tot_w=0
-                    total_logical_bytes=0
-                    total_physical_bytes=0
-
-                    for vol in vols:
-                        vol_data=process_volume(vol, svms, fsid_val)
-                        if vol_data:
-                            vol_results.append(vol_data)
-                            tot_r+=vol_data['read_throughput_mbs']
-                            tot_w+=vol_data['write_throughput_mbs']
-                            logical_size=vol.get('OntapConfiguration', {}).get('StorageEfficiencyAttributes', {}).get('LogicalSizeInBytes',0)
-                            physical_size=vol.get('OntapConfiguration', {}).get('StorageEfficiencyAttributes', {}).get('PhysicalSizeInBytes',0)
-                            total_logical_bytes+=logical_size
-                            total_physical_bytes+=physical_size
-
-                    prov_gib=sum(vol.get('OntapConfiguration', {}).get('SizeInMegabytes',0) for vol in vols)/1024
-                    prov_gib=math.floor(prov_gib)
-                    slack_gib=max(0, fs_gib-prov_gib)
-                    slack_pct=int((100*(slack_gib/fs_gib)) if fs_gib>0 else 0)
-                    storage_efficiency_pct=((total_logical_bytes-total_physical_bytes)/total_logical_bytes*100) if total_logical_bytes>0 else 0
-                    storage_efficiency_clamped="N/A" if storage_efficiency_pct>1000 else f"{storage_efficiency_pct:.2f}"
-
-                    fs_recommendations=[]
-                    if encryption_status and encryption_status['type']=='warning': fs_recommendations.append(encryption_status)
-                    if slack_pct>80:
-                        fs_recommendations.append({"type":"warning","message":f"Slack space is high (~{slack_pct}%). Consider resizing."})
-                    elif slack_pct<5:
-                        fs_recommendations.append({"type":"critical","message":f"Slack space is low (~{slack_pct}%). Consider increasing filesystem size."})
-
-                    tot_all=tot_r+tot_w
-                    if tot_all>tp:
-                        target=max(128, math.ceil(tot_all*1.2))
-                        fs_recommendations.append({"type":"critical","message":f"Throughput demand ({tot_all:.2f} MB/s) exceeds capacity ({tp} MB/s). Consider increasing to ~{target} MB/s."})
-
-                    if storage_efficiency_pct<20:
-                        fs_recommendations.append({"type":"info","message":f"Storage efficiency is low ({storage_efficiency_pct:.1f}%). Consider enabling features."})
-
-                    monthly_cost=get_storage_cost(region)*fs_gib
-
-                    fs_result={
-                        "fsid":fsid_val,
-                        "gen":gen,
-                        "state":state,
-                        "deployment_type":deployment_type,
-                        "storage_gib":fs_gib,
-                        "provisioned_gib":prov_gib,
-                        "slack_gib":slack_gib,
-                        "slack_percentage":slack_pct,
-                        "throughput_capacity":tp,
-                        "total_read_throughput":tot_r,
-                        "total_write_throughput":tot_w,
-                        "total_throughput":tot_all,
-                        "storage_efficiency":storage_efficiency_clamped,
-                        "storage_efficiency_percentage":storage_efficiency_pct,
-                        "monthly_cost_estimate":monthly_cost,
-                        "encryption_status":encryption_status,
-                        "tags":formatted_fs_tags,
-                        "volumes":vol_results,
-                        "recommendations":fs_recommendations
-                    }
-                    results.append(fs_result)
+                    try:
+                        # Get filesystem details
+                        gen = fs.get('OntapConfiguration', {}).get('FileSystemTypeVersion', 'GEN_1')
+                        state = fs.get('Lifecycle', 'UNKNOWN')
+                        fs_gib = fs.get('StorageCapacity', 0)
+                        tp = fs.get('OntapConfiguration', {}).get('ThroughputCapacity', 'unknown')
+                        deployment_type = fs.get('OntapConfiguration', {}).get('DeploymentType', 'Unknown')
+                        
+                        # Check encryption
+                        encryption_status = check_encryption(fsid)
+                        
+                        # Get filesystem tags
+                        fs_tags = get_tags(fsid)
+                        formatted_fs_tags = [{
+                            'Key': tag.get('Key', ''),
+                            'Value': tag.get('Value', '')
+                        } for tag in fs_tags if tag.get('Key') and tag.get('Value')]
+                        
+                        logger.info(f"FS: {fsid} Gen:{gen} State:{state} Storage:{fs_gib}GiB TP:{tp}MB/s")
+                        
+                        storage_efficiency_raw = get_storage_efficiency_savings(fsid)
+                        storage_efficiency_clamped = "N/A" if storage_efficiency_raw > 1000 else f"{storage_efficiency_raw:.2f}"
+                        
+                        svms = get_svms(fsid)
+                        vols = get_vols(fsid)
+                        vol_count = len(vols)
+                        
+                        if vol_count == 0:
+                            logger.info(f" No volumes for {fsid}")
+                            results.append({
+                                "fsid": fsid,
+                                "gen": gen,
+                                "state": state,
+                                "storage_gib": fs_gib,
+                                "throughput": tp,
+                                "deployment_type": deployment_type,
+                                "encryption_status": encryption_status,
+                                "tags": formatted_fs_tags,
+                                "volumes": [],
+                                "recommendations": [{"type": "info", "message": "No volumes found for this filesystem."}]
+                            })
+                            continue
+                        
+                        # Process volumes and calculate totals
+                        vol_results = []
+                        tot_r = 0
+                        tot_w = 0
+                        
+                        # Calculate total logical and physical sizes for storage efficiency
+                        total_logical_bytes = 0
+                        total_physical_bytes = 0
+                        
+                        for vol in vols:
+                            vol_data = process_volume(vol, svms, fsid)
+                            if vol_data:
+                                vol_results.append(vol_data)
+                                tot_r += vol_data['read_throughput_mbs']
+                                tot_w += vol_data['write_throughput_mbs']
+                                
+                                # Add to totals for storage efficiency
+                                logical_size = vol.get('OntapConfiguration', {}).get('StorageEfficiencyAttributes', {}).get('LogicalSizeInBytes', 0)
+                                physical_size = vol.get('OntapConfiguration', {}).get('StorageEfficiencyAttributes', {}).get('PhysicalSizeInBytes', 0)
+                                total_logical_bytes += logical_size
+                                total_physical_bytes += physical_size
+                        
+                        # Calculate capacity metrics
+                        prov_gib = sum(vol.get('OntapConfiguration', {}).get('SizeInMegabytes', 0) for vol in vols) / 1024
+                        prov_gib = math.floor(prov_gib)
+                        slack_gib = max(0, fs_gib - prov_gib)
+                        slack_pct = int((100 * (slack_gib / fs_gib)) if fs_gib > 0 else 0)
+                        
+                        # Calculate overall storage efficiency
+                        storage_efficiency_pct = ((total_logical_bytes - total_physical_bytes) / total_logical_bytes * 100) if total_logical_bytes > 0 else 0
+                        
+                        # Generate recommendations
+                        fs_recommendations = []
+                        
+                        # Add encryption recommendation if needed
+                        if encryption_status and encryption_status['type'] == 'warning':
+                            fs_recommendations.append(encryption_status)
+                        
+                        # Slack space recommendations
+                        if slack_pct > 80:
+                            fs_recommendations.append({
+                                "type": "warning",
+                                "message": f"Slack space is high (~{slack_pct}%). Consider resizing the filesystem down to better utilize capacity and reduce costs."
+                            })
+                        elif slack_pct < 5:
+                            fs_recommendations.append({
+                                "type": "critical",
+                                "message": f"Slack space is low (~{slack_pct}%). Consider increasing filesystem size to avoid running out of capacity."
+                            })
+                        
+                        # Throughput recommendations
+                        tot_all = tot_r + tot_w
+                        if isinstance(tp, (int, float)):
+                            target = max(128, math.ceil(tot_all * 1.2))
+                            if tot_all > tp:
+                                fs_recommendations.append({
+                                    "type": "critical",
+                                    "message": f"Throughput demand ({tot_all:.2f} MB/s) exceeds capacity ({tp} MB/s). Consider increasing to ~{target} MB/s."
+                                })
+                            elif target < tp:
+                                fs_recommendations.append({
+                                    "type": "warning",
+                                    "message": f"Consider lowering throughput from {tp} -> ~{target} MB/s to save costs."
+                                })
+                        
+                        # Add storage efficiency recommendation
+                        if storage_efficiency_pct < 20:
+                            fs_recommendations.append({
+                                "type": "info",
+                                "message": f"Storage efficiency is low ({storage_efficiency_pct:.1f}%). Consider enabling storage efficiency features."
+                            })
+                        
+                        # Calculate estimated monthly cost
+                        monthly_cost = get_storage_cost(region) * fs_gib
+                        
+                        # Create filesystem result
+                        fs_result = {
+                            "fsid": fsid,
+                            "gen": gen,
+                            "state": state,
+                            "deployment_type": deployment_type,
+                            "storage_gib": fs_gib,
+                            "provisioned_gib": prov_gib,
+                            "slack_gib": slack_gib,
+                            "slack_percentage": slack_pct,
+                            "throughput_capacity": tp,
+                            "total_read_throughput": tot_r,
+                            "total_write_throughput": tot_w,
+                            "total_throughput": tot_all,
+                            "storage_efficiency": storage_efficiency_clamped,
+                            "storage_efficiency_percentage": storage_efficiency_pct,
+                            "monthly_cost_estimate": monthly_cost,
+                            "encryption_status": encryption_status,
+                            "tags": formatted_fs_tags,
+                            "volumes": vol_results,
+                            "recommendations": fs_recommendations
+                        }
+                        
+                        results.append(fs_result)
+                        
+                    except Exception as e:
+                        logger.error(f"Error processing filesystem {fsid}: {str(e)}")
+                        continue
+                
                 return results
 
             except Exception as e:
                 logger.error(f"Error in analyze_filesystems: {str(e)}")
-                return [{
-                    "fsid":"N/A",
-                    "volumes":[],
-                    "recommendations":[{"type":"critical","message":f"Error analyzing filesystems: {str(e)}"}]
-                }]
+                return {"message": f"Error analyzing filesystems: {str(e)}"}
 
+        # Run analysis and return JSON data
         analysis_results = analyze_filesystems()
-
+        
+        # Return JSON response
         return {
-            'statusCode':200,
-            'headers':{
-                'Content-Type':'application/json',
-                'Access-Control-Allow-Origin':'*',
-                'Access-Control-Allow-Headers':'*',
-                'Access-Control-Allow-Methods':'GET,OPTIONS,POST'
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': '*',
+                'Access-Control-Allow-Methods': 'GET,OPTIONS,POST'
             },
-            'body':json.dumps({
-                'timestamp':now_utc(),
-                'results':analysis_results
+            'body': json.dumps({
+                'timestamp': now_utc(),
+                'results': analysis_results
             }, default=decimal_serializer)
         }
-
+        
     except Exception as e:
         logger.error(f"Error in lambda_handler: {str(e)}", exc_info=True)
         return {
-            'statusCode':500,
-            'headers':{'Content-Type':'application/json','Access-Control-Allow-Origin':'*'},
-            'body':json.dumps({'error':str(e)})
+            'statusCode': 500,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({
+                'error': str(e)
+            })
         }
+
+# Helper function to handle Decimal serialization
+def decimal_serializer(obj):
+    if isinstance(obj, Decimal):
+        return float(obj)
+    raise TypeError("Type not serializable")
