@@ -10,16 +10,16 @@ files:
 
 hooks:
   BeforeInstall:
-    - location: /opt/deployment/scripts/before_install.sh
+    - location: scripts/before_install.sh
       timeout: 300
       runas: root
 
   AfterInstall:
-    - location: /opt/deployment/scripts/after_install.sh
+    - location: scripts/after_install.sh
       timeout: 300
       runas: root
 
   ApplicationStart:
-    - location: /opt/deployment/scripts/start_services.sh
+    - location: scripts/start_services.sh
       timeout: 300
       runas: root
