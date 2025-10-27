@@ -185,12 +185,19 @@
             border-color: #2c88d9;
             box-shadow: 0 0 0 2px rgba(44, 136, 217, 0.2);
         }
+        
+        .region-indicator {
+            font-size: 14px;
+            color: #666;
+            margin-top: 10px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
     <header>
-        <h1>FSx Analysis Tool</h1>
-        <p>Analyze your Amazon FSx for Windows File Server resources and get optimization recommendations</p>
+        <h1>FSx Waste Analyzer</h1>
+        <p>Analyze your Amazon FSx resources and get optimization recommendations</p>
     </header>
     
     <div class="container">
@@ -250,12 +257,21 @@
 
                 const htmlContent = generateHtmlFromJson(data);
                 
-                results.innerHTML = htmlContent;
+                // Add region indicator
+                const regionName = regionSelect.options[regionSelect.selectedIndex].text;
+                results.innerHTML = `
+                    <div class="region-indicator">Showing results for ${regionName}</div>
+                    ${htmlContent}
+                `;
                 results.style.display = 'block';
 
             } catch (err) {
                 console.error('Error:', err);
-                error.textContent = `Error: ${err.message}`;
+                const regionName = regionSelect.options[regionSelect.selectedIndex].text;
+                error.innerHTML = `
+                    <strong>Error analyzing region ${regionName}:</strong><br>
+                    ${err.message}
+                `;
                 error.style.display = 'block';
             } finally {
                 button.disabled = false;
@@ -264,48 +280,78 @@
         }
 
         function generateHtmlFromJson(data) {
-            if (!data.file_systems || data.file_systems.length === 0) {
-                return '<div class="recommendation"><h3>No FSx file systems found</h3><p>No FSx for Windows File Server systems were found in this region.</p></div>';
+            const results = data.results;
+            
+            if (!results || (typeof results === 'object' && results.message)) {
+                return `<div class="recommendation"><h3>No FSx file systems found</h3><p>${results && results.message ? results.message : 'No FSx systems were found in this region.'}</p></div>`;
+            }
+            
+            if (!Array.isArray(results) || results.length === 0) {
+                return '<div class="recommendation"><h3>No FSx file systems found</h3><p>No FSx systems were found in this region.</p></div>';
             }
             
             let html = '<h2>Analysis Results</h2>';
             
             // Summary section
+            const totalSystems = results.length;
+            const totalStorageGiB = results.reduce((sum, fs) => sum + (fs.storage_gib || 0), 0);
+            const totalCost = results.reduce((sum, fs) => sum + (fs.monthly_cost_estimate || 0), 0);
+            const potentialSavings = results.reduce((sum, fs) => {
+                // Calculate potential savings based on recommendations
+                let fsSavings = 0;
+                if (fs.recommendations) {
+                    // Add savings for throughput reduction recommendations
+                    const throughputRec = fs.recommendations.find(r => r.message && r.message.includes('Consider lowering throughput'));
+                    if (throughputRec) {
+                        // Rough estimate: 20% of monthly cost
+                        fsSavings += fs.monthly_cost_estimate * 0.2;
+                    }
+                    
+                    // Add savings for slack space recommendations
+                    const slackRec = fs.recommendations.find(r => r.message && r.message.includes('Slack space is high'));
+                    if (slackRec) {
+                        // Rough estimate: slack percentage of monthly cost
+                        fsSavings += fs.monthly_cost_estimate * (fs.slack_percentage / 100) * 0.5;
+                    }
+                }
+                return sum + fsSavings;
+            }, 0);
+            
             html += `
                 <div class="recommendation">
                     <h3>Summary</h3>
                     <div class="metrics">
                         <div class="metric">
                             <div class="metric-title">File Systems Analyzed</div>
-                            <div class="metric-value">${data.file_systems.length}</div>
+                            <div class="metric-value">${totalSystems}</div>
                         </div>
                         <div class="metric">
-                            <div class="metric-title">Total Storage (TB)</div>
-                            <div class="metric-value">${(data.total_storage_gb / 1024).toFixed(2)}</div>
+                            <div class="metric-title">Total Storage</div>
+                            <div class="metric-value">${(totalStorageGiB / 1024).toFixed(2)} TB</div>
                         </div>
                         <div class="metric">
                             <div class="metric-title">Total Monthly Cost</div>
-                            <div class="metric-value">$${data.total_cost.toFixed(2)}</div>
+                            <div class="metric-value">$${totalCost.toFixed(2)}</div>
                         </div>
                         <div class="metric">
                             <div class="metric-title">Potential Savings</div>
-                            <div class="metric-value savings">$${data.potential_savings.toFixed(2)}</div>
+                            <div class="metric-value savings">$${potentialSavings.toFixed(2)}</div>
                         </div>
                     </div>
                 </div>
             `;
             
             // Individual file system recommendations
-            data.file_systems.forEach(fs => {
+            results.forEach(fs => {
                 html += `
                     <div class="recommendation">
-                        <h3>File System: ${fs.file_system_id}</h3>
-                        <p><strong>Name:</strong> ${fs.name || 'Unnamed'}</p>
+                        <h3>File System: ${fs.fsid}</h3>
+                        <p><strong>Type:</strong> ${fs.deployment_type || 'Unknown'}</p>
                         
                         <div class="metrics">
                             <div class="metric">
                                 <div class="metric-title">Storage Capacity</div>
-                                <div class="metric-value">${fs.storage_capacity_gb} GB</div>
+                                <div class="metric-value">${fs.storage_gib} GiB</div>
                             </div>
                             <div class="metric">
                                 <div class="metric-title">Throughput Capacity</div>
@@ -313,11 +359,11 @@
                             </div>
                             <div class="metric">
                                 <div class="metric-title">Monthly Cost</div>
-                                <div class="metric-value">$${fs.monthly_cost.toFixed(2)}</div>
+                                <div class="metric-value">$${fs.monthly_cost_estimate ? fs.monthly_cost_estimate.toFixed(2) : 'N/A'}</div>
                             </div>
                             <div class="metric">
-                                <div class="metric-title">Storage Utilization</div>
-                                <div class="metric-value">${fs.storage_utilization ? (fs.storage_utilization * 100).toFixed(1) + '%' : 'N/A'}</div>
+                                <div class="metric-title">Storage Efficiency</div>
+                                <div class="metric-value">${fs.storage_efficiency || 'N/A'}</div>
                             </div>
                         </div>
                         
@@ -326,17 +372,53 @@
                 
                 if (fs.recommendations && fs.recommendations.length > 0) {
                     fs.recommendations.forEach(rec => {
+                        if (rec.type === "separator") return;
+                        
+                        let iconClass = "info";
+                        if (rec.type === "warning") iconClass = "warning";
+                        if (rec.type === "critical") iconClass = "critical";
+                        
                         html += `
-                            <div class="recommendation">
-                                <h5>${rec.title}</h5>
-                                <p>${rec.description}</p>
-                                <p><strong>Potential Monthly Savings:</strong> <span class="savings">$${rec.savings.toFixed(2)}</span></p>
-                                <p><strong>Action:</strong> ${rec.action}</p>
+                            <div class="recommendation ${rec.type}">
+                                <p>${rec.message}</p>
                             </div>
                         `;
                     });
                 } else {
                     html += `<p>No recommendations at this time. Your file system appears to be optimized.</p>`;
+                }
+                
+                // Add volumes section if available
+                if (fs.volumes && fs.volumes.length > 0) {
+                    html += `
+                        <h4>Volumes (${fs.volumes.length})</h4>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Volume</th>
+                                    <th>Size (GiB)</th>
+                                    <th>Throughput (MB/s)</th>
+                                    <th>Efficiency</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    
+                    fs.volumes.forEach(vol => {
+                        html += `
+                            <tr>
+                                <td>${vol.path || vol.id}</td>
+                                <td>${vol.size_gib}</td>
+                                <td>${vol.total_throughput_mbs.toFixed(2)}</td>
+                                <td>${vol.efficiency_ratio}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += `
+                            </tbody>
+                        </table>
+                    `;
                 }
                 
                 html += `</div>`;
