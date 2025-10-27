@@ -3,193 +3,236 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FSx Waste Analyzer</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <title>FSx Analysis Tool</title>
     <style>
         body {
-            font-family: 'Roboto', sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f0f8ff;
+            font-family: 'Amazon Ember', Arial, sans-serif;
+            line-height: 1.6;
             color: #333;
-        }
-        .header {
-            background-color: #1a5f7a;
-            color: white;
-            padding: 20px;
-            text-align: center;
-            border-bottom: 5px solid #134b61;
-        }
-        .stars {
-            color: #ffd700;
-            font-size: 24px;
-            margin-bottom: 10px;
-        }
-        .container {
             max-width: 1200px;
-            margin: 20px auto;
+            margin: 0 auto;
             padding: 20px;
+            background-color: #f8f8f8;
         }
-        .action-card {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        
+        header {
             text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            color: #232f3e;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 20px;
             margin-bottom: 20px;
         }
+        
+        .action-card {
+            text-align: center;
+            padding: 30px;
+        }
+        
         .button {
-            background-color: #2c2c88d9;
+            background-color: #ff9900;
             color: white;
-            padding: 12px 24px;
             border: none;
-            border-radius: 5px;
-            cursor: pointer;
+            padding: 10px 20px;
+            border-radius: 4px;
             font-size: 16px;
-            font-weight: 500;
+            cursor: pointer;
             transition: background-color 0.3s;
         }
+        
         .button:hover {
-            background-color: #2374bc;
+            background-color: #e88b00;
         }
+        
         .button:disabled {
             background-color: #cccccc;
             cursor: not-allowed;
         }
-        .loading {
+        
+        #loading {
             display: none;
-            margin: 20px 0;
             text-align: center;
+            margin: 20px 0;
         }
+        
         .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #2c88d9;
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left: 4px solid #ff9900;
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
+            width: 30px;
+            height: 30px;
             animation: spin 1s linear infinite;
-            margin: 20px auto;
+            margin: 0 auto;
         }
+        
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        .error-message {
+        
+        #error {
             display: none;
-            background: #ffebee;
-            color: #c62828;
+            color: #d13212;
+            background-color: #fff0f0;
             padding: 15px;
-            border-radius: 5px;
+            border-radius: 4px;
             margin: 20px 0;
+            border-left: 4px solid #d13212;
         }
+        
         #results {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            margin-top: 20px;
             display: none;
         }
-        .timestamp {
-            text-align: center;
-            color: #777;
-            margin-bottom: 25px;
+        
+        .recommendation {
+            margin-bottom: 30px;
+            border-left: 4px solid #ff9900;
+            padding-left: 15px;
         }
-        .volume-table {
+        
+        .recommendation h3 {
+            margin-top: 0;
+            color: #232f3e;
+        }
+        
+        .metrics {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 15px 0;
+        }
+        
+        .metric {
+            background-color: #f2f8fd;
+            padding: 10px 15px;
+            border-radius: 4px;
+            flex-grow: 1;
+            min-width: 120px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        
+        .metric-title {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .metric-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #232f3e;
+        }
+        
+        table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 30px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            background: white;
-            border-radius: 10px;
-            overflow: hidden;
+            margin: 20px 0;
         }
-        .volume-table th, .volume-table td {
+        
+        th, td {
+            padding: 12px 15px;
             text-align: left;
-            padding: 8px 12px;
-            vertical-align: top;
+            border-bottom: 1px solid #ddd;
         }
-        .volume-table tr:nth-child(even) {
-            background-color: #f0f7ff;
+        
+        th {
+            background-color: #f2f2f2;
+            font-weight: 500;
         }
-        .volume-table tr:nth-child(odd) {
-            background-color: #ffffff;
+        
+        tr:hover {
+            background-color: #f9f9f9;
         }
-        .volume-table th {
-            background-color: #1565c0;
-            color: white;
+        
+        .savings {
+            color: #008000;
             font-weight: bold;
         }
-        .fs-header {
-            background-color: #0d47a1;
-            color: black;
+        
+        .button-group {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .region-select {
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            background-color: white;
             font-size: 16px;
-            font-weight: bold;
+            min-width: 200px;
+            cursor: pointer;
         }
-        .section-title {
-            font-weight: bold;
-            color: #1565c0;
-            padding-top: 8px;
-        }
-        .tag {
-            background: #e3f2fd;
-            border: 1px solid #90caf9;
-            border-radius: 4px;
-            padding: 2px 6px;
-            margin-right: 4px;
-            display: inline-block;
-            font-size: 12px;
-            color: #0d47a1;
-        }
-        .recommendations {
-            background-color: #fff3e0;
-            border-top: 2px solid #ffe0b2;
-        }
-        .footer {
-            text-align: center;
-            color: #999;
-            font-size: 13px;
-            margin-top: 40px;
-        }
-        .warning {
-            color: #e65100;
-        }
-        .critical {
-            color: #d32f2f;
-        }
-        .info {
-            color: #1565c0;
+
+        .region-select:focus {
+            outline: none;
+            border-color: #2c88d9;
+            box-shadow: 0 0 0 2px rgba(44, 136, 217, 0.2);
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="stars">********************</div>
-        <h1>FSx Waste Analyzer</h1>
-        <div class="stars">********************</div>
-    </div>
-
+    <header>
+        <h1>FSx Analysis Tool</h1>
+        <p>Analyze your Amazon FSx for Windows File Server resources and get optimization recommendations</p>
+    </header>
+    
     <div class="container">
-        <div class="action-card">
+        <div class="card action-card">
             <p>Click the button below to analyze your FSx systems and get recommendations</p>
-            <button onclick="runAnalysis()" id="analyzeButton" class="button">Run FSx Analysis</button>
+            <div class="button-group">
+                <select id="regionSelect" class="region-select">
+                    <option value="us-east-1">US East (N. Virginia)</option>
+                    <option value="us-east-2">US East (Ohio)</option>
+                    <option value="us-west-1">US West (N. California)</option>
+                    <option value="us-west-2">US West (Oregon)</option>
+                    <option value="eu-west-1" selected>EU West (Ireland)</option>
+                    <option value="eu-west-2">EU West (London)</option>
+                    <option value="eu-central-1">EU Central (Frankfurt)</option>
+                    <option value="ap-northeast-1">Asia Pacific (Tokyo)</option>
+                    <option value="ap-southeast-1">Asia Pacific (Singapore)</option>
+                    <option value="ap-southeast-2">Asia Pacific (Sydney)</option>
+                </select>
+                <button onclick="runAnalysis()" id="analyzeButton" class="button">Run FSx Analysis</button>
+            </div>
         </div>
-
-        <div id="loading" class="loading">
+        
+        <div id="loading">
             <div class="spinner"></div>
-            <p>Analyzing FSx systems...</p>
+            <p>Analyzing your FSx resources... This may take a few moments.</p>
         </div>
-
-        <div id="error" class="error-message"></div>
-        <div id="results"></div>
+        
+        <div id="error"></div>
+        
+        <div id="results" class="card">
+            <!-- Results will be populated here -->
+        </div>
     </div>
-
+    
     <script>
         async function runAnalysis() {
             const button = document.getElementById('analyzeButton');
             const loading = document.getElementById('loading');
             const error = document.getElementById('error');
             const results = document.getElementById('results');
+            const regionSelect = document.getElementById('regionSelect');
+            const selectedRegion = regionSelect.value;
 
             try {
                 button.disabled = true;
@@ -197,9 +240,9 @@
                 results.style.display = 'none';
                 error.style.display = 'none';
 
-                console.log('Starting API call...');
+                console.log(`Starting API call for region: ${selectedRegion}...`);
                 
-                const response = await fetch('https://0c345js9lc.execute-api.us-east-1.amazonaws.com/prod');
+                const response = await fetch(`https://0c345js9lc.execute-api.us-east-1.amazonaws.com/prod?region=${selectedRegion}`);
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
                 // Parse Lambda API body (needed for API Gateway proxy integration)
@@ -222,76 +265,84 @@
         }
 
         function generateHtmlFromJson(data) {
-            let html = `<h1>FSx Analysis Report</h1>
-                        <div class="timestamp">Generated: ${data.timestamp}</div>`;
-            
-            const results = data.results;
-            
-            if (!Array.isArray(results)) {
-                return `<p>${results.message || 'No results available'}</p>`;
+            if (!data.file_systems || data.file_systems.length === 0) {
+                return '<div class="recommendation"><h3>No FSx file systems found</h3><p>No FSx for Windows File Server systems were found in this region.</p></div>';
             }
             
-            results.forEach(fs => {
+            let html = '<h2>Analysis Results</h2>';
+            
+            // Summary section
+            html += `
+                <div class="recommendation">
+                    <h3>Summary</h3>
+                    <div class="metrics">
+                        <div class="metric">
+                            <div class="metric-title">File Systems Analyzed</div>
+                            <div class="metric-value">${data.file_systems.length}</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-title">Total Storage (TB)</div>
+                            <div class="metric-value">${(data.total_storage_gb / 1024).toFixed(2)}</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-title">Total Monthly Cost</div>
+                            <div class="metric-value">$${data.total_cost.toFixed(2)}</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-title">Potential Savings</div>
+                            <div class="metric-value savings">$${data.potential_savings.toFixed(2)}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Individual file system recommendations
+            data.file_systems.forEach(fs => {
                 html += `
-                <table class="volume-table">
-                    <tr class="fs-header"><td colspan="2"><h2 style="color: black;"> Filesystem: ${fs.fsid} </h2></td></tr>
-                    <tr><td>Generation</td><td>${fs.gen}</td></tr>
-                    <tr><td>Storage</td><td>${fs.storage_gib} GiB</td></tr>
-                    <tr><td>Used</td><td>${fs.provisioned_gib} GiB</td></tr>
-                    <tr><td>Throughput</td><td>${fs.throughput_capacity} MB/s</td></tr>
-                    <tr><td>Total I/O</td><td>${fs.total_throughput.toFixed(2)} MB/s</td></tr>
-                    <tr><td>Monthly Cost</td><td>$${fs.monthly_cost_estimate.toFixed(2)}</td></tr>
-                    <tr><td>Efficiency</td><td>${fs.storage_efficiency}%</td></tr>
-                    <tr><td class="section-title">Tags</td>
-                        <td>${fs.tags && fs.tags.length ? fs.tags.map(t => `<span class="tag">${t.Key}: ${t.Value}</span>`).join(' ') : 'No tags'}</td>
-                    </tr>
-                    <tr class="recommendations">
-                        <td colspan="2">
-                            <div class="section-title">Recommendations</div>
-                            ${fs.recommendations && fs.recommendations.length ? 
-                              fs.recommendations.map(rec => `<div class="${rec.type}">• ${rec.message}</div>`).join('') : 
-                              '<div>None</div>'}
-                        </td>
-                    </tr>
-                </table>`;
-                
-                if (fs.volumes && fs.volumes.length) {
-                    html += `
-                    <table class="volume-table">
-                        <tr><th colspan="6">Volumes for ${fs.fsid}</th></tr>
-                        <tr>
-                            <th>Path</th>
-                            <th>Size (GiB)</th>
-                            <th>Total I/O (MB/s)</th>
-                            <th>Read</th>
-                            <th>Write</th>
-                            <th>Recommendations</th>
-                        </tr>`;
+                    <div class="recommendation">
+                        <h3>File System: ${fs.file_system_id}</h3>
+                        <p><strong>Name:</strong> ${fs.name || 'Unnamed'}</p>
                         
-                    fs.volumes.forEach(vol => {
-                        const recs = vol.recommendations ? 
-                            vol.recommendations
-                                .filter(r => r.type !== "separator")
-                                .map(r => `<div class="${r.type}">• ${r.message}</div>`)
-                                .join('') : 
-                            'None';
-                            
+                        <div class="metrics">
+                            <div class="metric">
+                                <div class="metric-title">Storage Capacity</div>
+                                <div class="metric-value">${fs.storage_capacity_gb} GB</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-title">Throughput Capacity</div>
+                                <div class="metric-value">${fs.throughput_capacity} MB/s</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-title">Monthly Cost</div>
+                                <div class="metric-value">$${fs.monthly_cost.toFixed(2)}</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-title">Storage Utilization</div>
+                                <div class="metric-value">${fs.storage_utilization ? (fs.storage_utilization * 100).toFixed(1) + '%' : 'N/A'}</div>
+                            </div>
+                        </div>
+                        
+                        <h4>Recommendations</h4>
+                `;
+                
+                if (fs.recommendations && fs.recommendations.length > 0) {
+                    fs.recommendations.forEach(rec => {
                         html += `
-                        <tr>
-                            <td>${vol.path}</td>
-                            <td>${vol.size_gib}</td>
-                            <td>${vol.total_throughput_mbs.toFixed(2)}</td>
-                            <td>${vol.read_throughput_mbs.toFixed(2)}</td>
-                            <td>${vol.write_throughput_mbs.toFixed(2)}</td>
-                            <td>${recs}</td>
-                        </tr>`;
+                            <div class="recommendation">
+                                <h5>${rec.title}</h5>
+                                <p>${rec.description}</p>
+                                <p><strong>Potential Monthly Savings:</strong> <span class="savings">$${rec.savings.toFixed(2)}</span></p>
+                                <p><strong>Action:</strong> ${rec.action}</p>
+                            </div>
+                        `;
                     });
-                    
-                    html += "</table>";
+                } else {
+                    html += `<p>No recommendations at this time. Your file system appears to be optimized.</p>`;
                 }
+                
+                html += `</div>`;
             });
             
-            html += `<div class="footer">FSx Analyzer — AWS Optimization Report</div>`;
             return html;
         }
     </script>
