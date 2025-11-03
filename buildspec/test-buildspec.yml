@@ -1,0 +1,60 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.9
+    commands:
+      - pip install requests
+
+  build:
+    commands:
+      # Get the EC2 test instance IP
+      - EC2_IP=$(aws ec2 describe-instances --filters "Name=tag:Environment,Values=Test" --query 'Reservations[*].Instances[*].PublicIpAddress' --output text)
+      - echo "Testing application on $EC2_IP"
+      
+      # Test the nginx configuration
+      - |
+        endpoint="http://${EC2_IP}/fsx-analyzer"
+        timeout=60
+        start_time=$(date +%s)
+        
+        while true; do
+          current_time=$(date +%s)
+          elapsed=$((current_time - start_time))
+          
+          if [ $elapsed -ge $timeout ]; then
+            echo "Timeout after ${timeout} seconds"
+            exit 1
+          fi
+          
+          http_code=$(curl -s -o /dev/null -w "%{http_code}" $endpoint 2>/dev/null)
+          echo "Status code: $http_code"
+          
+          if [ "$http_code" = "200" ]; then
+            echo "Application healthy on test instance"
+            
+            # Test if index.html is accessible
+            content=$(curl -s $endpoint)
+            if [[ $content == *"FSx Analyzer"* ]]; then
+              echo "Content verification successful"
+              exit 0
+            else
+              echo "Content verification failed"
+              exit 1
+            fi
+          else
+            echo "Application returned $http_code, retrying... (${elapsed}s elapsed)"
+            sleep 5
+          fi
+        done
+
+  post_build:
+    commands:
+      - |
+        if [ $CODEBUILD_BUILD_SUCCEEDING = 1 ]; then
+          echo "Test stage verification successful!"
+        else
+          echo "Test stage verification failed!"
+          exit 1
+        fi
