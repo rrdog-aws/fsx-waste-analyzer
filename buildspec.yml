@@ -26,5 +26,7 @@ artifacts:
   base-directory: artifacts
   files:
     - '**/*'
+    - 'appspec.yml'
+    - 'scripts/*.sh'
   name: BuildArtif
   discard-paths: no
